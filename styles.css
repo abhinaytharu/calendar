@@ -482,7 +482,15 @@ input, select, textarea { font: inherit; }
 .settings-actions .btn.primary:hover { background: var(--primary-hover); box-shadow: 0 4px 10px rgba(26,115,232,0.3); transform: translateY(-1px); }
 .settings-actions .btn.danger { background: #fce8e6; color: var(--danger); border-color: #f8d7da; }
 .settings-actions .btn.danger:hover { background: #f8d7da; border-color: #f5c6cb; box-shadow: 0 2px 6px rgba(217,48,37,0.15); transform: translateY(-1px); }
-.settings-actions .btn:active { transform: translateY(0); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.settings-actions .btn:active, .modern-actions .btn:active { transform: translateY(0); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+.modern-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; align-items: center; padding-top: 4px; }
+.modern-actions .btn { border-radius: 8px; padding: 10px 18px; font-size: 13px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 2px rgba(60,64,67,0.08); transition: all .15s; border: 1px solid transparent; }
+.modern-actions .btn.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+.modern-actions .btn.secondary:hover { background: var(--surface-hover); border-color: var(--border); box-shadow: 0 2px 6px rgba(60,64,67,0.12); transform: translateY(-1px); }
+.modern-actions .btn.primary { background: var(--primary); color: #fff; border-color: var(--primary); box-shadow: 0 2px 6px rgba(26,115,232,0.25); }
+.modern-actions .btn.primary:hover { background: var(--primary-hover); box-shadow: 0 4px 10px rgba(26,115,232,0.3); transform: translateY(-1px); }
+.modern-actions .btn.danger { background: #fce8e6; color: var(--danger); border-color: #f8d7da; }
+.modern-actions .btn.danger:hover { background: #f8d7da; border-color: #f5c6cb; box-shadow: 0 2px 6px rgba(217,48,37,0.15); transform: translateY(-1px); }
 .modern-hint { background: var(--bg); border: 1px solid var(--border-light); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
 .modern-hint.hidden { display: none !important; }
 

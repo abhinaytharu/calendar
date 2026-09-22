@@ -1023,8 +1023,8 @@
     $('#todayBtnTop').addEventListener('click', ()=>{ state.currentBS=Nep.todayBS(); renderAll(); if(isTokenValid()) syncGoogleEvents().then(renderAll); });
     $('#currentPeriod').addEventListener('click', ()=>{ syncDatePickerFromCurrent(); renderDatePicker(); const m=$('#datePickerModal'); m.classList.remove('hidden'); trapModal(m.querySelector('.modal')); });
     const openCreateForToday=()=> openCreate(toISO(Nep.bsToAd(state.currentBS.year,state.currentBS.month,state.currentBS.day)));
-    $('#createBtn').addEventListener('click', openCreateForToday);
-    $('#createCompact').addEventListener('click', openCreateForToday);
+    const cbTop=$('#createBtn'); if(cbTop) cbTop.addEventListener('click', openCreateForToday);
+    const cbSide=$('#createCompact'); if(cbSide) cbSide.addEventListener('click', openCreateForToday);
     const fab=$('#fabCreate');
     if(fab) fab.addEventListener('click', openCreateForToday);
     const mt=$('#menuToggle')||$('#menuToggleNav');

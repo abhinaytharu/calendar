@@ -88,6 +88,20 @@ input, select, textarea { font: inherit; }
 .theme-toggle:hover { background: var(--surface-hover); }
 .main-container { display: grid; grid-template-columns: var(--sidebar-w) 1fr; flex: 1; min-height: 0; }
 .sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 16px; }
+/* Modern desktop — hide hamburger, floating UI */
+@media (min-width: 769px) {
+  .menu-toggle { display: none !important; }
+  .topbar { background: rgba(255,255,255,0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid rgba(218,220,224,0.6); box-shadow: 0 1px 3px rgba(60,64,67,0.08); }
+  [data-theme="dark"] .topbar { background: rgba(45,46,48,0.88); border-bottom-color: rgba(95,99,104,0.3); }
+  .app-title { font-weight: 500; letter-spacing: -0.01em; background: linear-gradient(135deg, #1a73e8 0%, #0b57d0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+  .app-title::before { filter: drop-shadow(0 1px 2px rgba(26,115,232,0.2)); }
+  .sidebar { background: transparent; border-right: none; padding: 16px 12px 16px 0; gap: 14px; }
+  .sidebar-section { background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; padding: 12px; box-shadow: 0 1px 2px rgba(60,64,67,0.06); }
+  .mini-calendar { background: transparent; border: none; padding: 4px; }
+  .main-container { gap: 16px; padding: 16px; background: var(--bg); }
+  .calendar-main { border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(60,64,67,0.1), 0 4px 12px rgba(60,64,67,0.06); border: 1px solid var(--border-light); }
+  .month-grid { border-radius: 12px; overflow: hidden; }
+}
 .sidebar::-webkit-scrollbar { width: 8px; }
 .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 .create-compact { width: fit-content; display: flex; align-items: center; gap: 12px; padding: 0 20px 0 14px; height: 48px; border-radius: 24px; border: none; background: #fff; color: #3c4043; font-weight: 500; box-shadow: 0 1px 3px rgba(60,64,67,.3); }

@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#1a73e8">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>Nepali Patro</title>
-    <script>(function(){try{var t=localStorage.getItem('np_theme')||'auto';var m=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';var r=t==='auto'?m:t;document.documentElement.setAttribute('data-theme',r);}catch(e){}})();</script>
+    <script>document.documentElement.classList.add('no-transition');(function(){try{var t=localStorage.getItem('np_theme')||'auto';var m=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';var r=t==='auto'?m:t;document.documentElement.setAttribute('data-theme',r);}catch(e){}})();window.addEventListener('DOMContentLoaded',function(){ setTimeout(function(){document.documentElement.classList.remove('no-transition');}, 100);});</script>
     <link rel="preconnect" href="https://accounts.google.com">
     <link rel="preconnect" href="https://www.googleapis.com">
     <link rel="stylesheet" href="styles.css">

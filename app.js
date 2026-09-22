@@ -651,7 +651,9 @@
     }
     html+=`</div>`;
     el.innerHTML=html;
-    $('#miniAdLabel').textContent=Nep.bsToAd(y,m,1).toLocaleDateString('en-US',{month:'short', year:'numeric'})+' AD';
+    // English AD removed from mini calendar as requested — only BS
+    const miniAdEl = $('#miniAdLabel');
+    if(miniAdEl) miniAdEl.textContent = '';
     el.querySelector('#miniPrev').addEventListener('click', ()=> navigateBS(-1));
     el.querySelector('#miniNext').addEventListener('click', ()=> navigateBS(1));
     el.querySelectorAll('.mini-day').forEach(cd=> cd.addEventListener('click', ()=>{ state.currentBS={year:y,month:m,day:Number(cd.dataset.d)}; renderAll(); }));

@@ -21,6 +21,17 @@
   // BS 2075-01-01 = 2018-04-14 00:00 Nepal = 2018-04-13 18:15 UTC
   const BS_REF = { y:2075, m:1, d:1, ad: new Date(Date.UTC(2018,3,13,18,15,0)) };
   function daysInBS(y,m){ return (BS_DATA[y]||BS_DATA[2082])[m-1] || 30; }
+  // User requested: BS is one day ahead, fix by showing BS day -1 without changing weekday
+  function bsForDisplay(bs){
+    let y=bs.year, m=bs.month, d=bs.day - 1;
+    if(d < 1){
+      m -= 1;
+      if(m < 1){ m = 12; y -= 1; }
+      if(y < 2075){ y = 2075; m = 1; d = 1; }
+      else d = daysInBS(y,m);
+    }
+    return {year:y, month:m, day:d};
+  }
   function toADFallback(bsY,bsM,bsD){
     let days=0;
     for(let y=BS_REF.y;y<bsY;y++) for(let mm=1;mm<=12;mm++) days+=daysInBS(y,mm);
@@ -594,20 +605,21 @@
 
   function updatePeriod(){
     const el=$('#currentPeriod');
+    const disp = bsForDisplay(state.currentBS);
     if(state.currentView==='month'){
-      const y=state.currentBS.year,m=state.currentBS.month;
+      const y=disp.year,m=disp.month;
       const ad=Nep.bsToAd(y,m,1), adEnd=Nep.bsToAd(y,m, Nep.daysInMonth(y,m));
       el.textContent=`${BS_MONTHS_NE[m-1]} ${y}  ·  ${ad.toLocaleDateString('en-US',{month:'short',year:'numeric'})} – ${adEnd.toLocaleDateString('en-US',{month:'short',year:'numeric'})}`;
     } else if(state.currentView==='week'){
       const ad=Nep.bsToAd(state.currentBS.year,state.currentBS.month,state.currentBS.day);
       const dow=ad.getDay(); const ws=new Date(ad); ws.setDate(ad.getDate()-dow); const we=new Date(ws); we.setDate(ws.getDate()+6);
-      const sBS=Nep.adToBs(ws), eBS=Nep.adToBs(we);
+      const sBS=bsForDisplay(Nep.adToBs(ws)), eBS=bsForDisplay(Nep.adToBs(we));
       el.textContent=`${BS_MONTHS_NE[sBS.month-1]} ${sBS.day} – ${BS_MONTHS_NE[eBS.month-1]} ${eBS.day}, ${eBS.year}`;
     } else if(state.currentView==='day'){
-      const bs=state.currentBS; const ad=Nep.bsToAd(bs.year,bs.month,bs.day);
+      const bs=disp; const ad=Nep.bsToAd(state.currentBS.year,state.currentBS.month,state.currentBS.day);
       el.textContent=`${BS_MONTHS_NE[bs.month-1]} ${bs.day}, ${bs.year} · ${fmtAD(ad)} · ${WEEKDAYS_FULL[ad.getDay()]}`;
     } else {
-      el.textContent=`${BS_MONTHS_NE[state.currentBS.month-1]} ${state.currentBS.year} — Schedule`;
+      el.textContent=`${BS_MONTHS_NE[disp.month-1]} ${disp.year} — Schedule`;
     }
     if(el) el.title = el.textContent;
   }
@@ -624,7 +636,8 @@
       const isToday=todayBS.year===y && todayBS.month===m && todayBS.day===d;
       const isSel=state.currentBS.year===y && state.currentBS.month===m && state.currentBS.day===d;
       const ad=Nep.bsToAd(y,m,d); const iso=toISO(ad); const hasTask = hasTasksForAD(iso);
-      html+=`<div class="mini-day ${isToday?'today':''} ${isSel && !isToday?'selected':''} ${hasTask?'has-task':''}" data-d="${d}">${d}</div>`;
+      const disp = bsForDisplay({year:y, month:m, day:d}).day;
+      html+=`<div class="mini-day ${isToday?'today':''} ${isSel && !isToday?'selected':''} ${hasTask?'has-task':''}" data-d="${d}">${disp}</div>`;
     }
     html+=`</div>`;
     el.innerHTML=html;
@@ -712,8 +725,9 @@
       const evs=getEventsForAD(iso);
       const tasks=getTasksForAD(iso);
       const dow=ad.getDay();
+      const dispD = bsForDisplay({year:bsY, month:bsM, day:bsD}).day;
       html+=`<div class="month-cell ${other?'other':''} ${isToday?'today':''} ${isSel?'selected':''}" data-iso="${iso}" data-bs="${bsY}-${bsM}-${bsD}">`;
-      html+=`<div class="day-head"><span class="bs-day ${dow===6?'saturday':''}">${bsD}</span>${state.showAD?`<span class="ad-day">${ad.getDate()}</span>`:''}</div>`;
+      html+=`<div class="day-head"><span class="bs-day ${dow===6?'saturday':''}">${dispD}</span>${state.showAD?`<span class="ad-day">${ad.getDate()}</span>`:''}</div>`;
       const combined = [...evs.map(e=>({kind:'event', data:e})), ...tasks.map(t=>({kind:'task', data:t}))].slice(0,3);
       const remaining = evs.length + tasks.length - combined.length;
       if(combined.length){
@@ -758,7 +772,7 @@
     const todayISO=toISO(new Date());
     const container=$('#weekView');
     let html='<div class="week-layout"><div class="week-header"><div class="time-gutter"></div>';
-    for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const b=Nep.adToBs(d); html+=`<div class="day-col-header ${toISO(d)===todayISO?'today':''}"><div class="dow">${WEEKDAYS_EN[d.getDay()]}</div><div class="bsNum">${b.day}</div><div class="adNum">${d.getDate()} ${d.toLocaleDateString('en-US',{month:'short'})}</div><div style="font-size:10px;color:var(--text-muted)">${BS_MONTHS_NE[b.month-1]}</div></div>`; }
+    for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const b=Nep.adToBs(d); const bd=bsForDisplay(b); html+=`<div class="day-col-header ${toISO(d)===todayISO?'today':''}"><div class="dow">${WEEKDAYS_EN[d.getDay()]}</div><div class="bsNum">${bd.day}</div><div class="adNum">${d.getDate()} ${d.toLocaleDateString('en-US',{month:'short'})}</div><div style="font-size:10px;color:var(--text-muted)">${BS_MONTHS_NE[bd.month-1]}</div></div>`; }
     html+='</div><div class="all-day-row week"><div class="all-day-label">all-day</div>';
     for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const iso=toISO(d); const evs=getEventsForAD(iso).filter(e=>e.allDay); const tasks=getTasksForAD(iso); html+=`<div style="border-left:1px solid var(--border-light);padding:2px;display:flex;flex-direction:column;gap:2px">`; evs.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</div>`; }); tasks.forEach(t=>{ html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}">✓ ${esc(t.title)}</div>`; }); html+=`</div>`; }
     html+='</div><div class="time-grid week"><div class="time-labels">'; for(let h=0;h<24;h++) html+=`<div class="time-label">${h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'}</div>`; html+='</div>';
@@ -773,7 +787,8 @@
     const bs=state.currentBS, ad=Nep.bsToAd(bs.year,bs.month,bs.day), iso=toISO(ad);
     const container=$('#dayView');
     const isToday=iso===toISO(new Date());
-    let html='<div class="day-layout"><div class="day-header"><div class="time-gutter"></div><div class="day-col-header '+(isToday?'today':'')+'"><div class="dow">'+WEEKDAYS_FULL[ad.getDay()]+' · '+BS_MONTHS_NE[bs.month-1]+' '+bs.day+', '+bs.year+'</div><div class="adNum">'+fmtAD(ad)+'</div></div></div>';
+    const bdDisp = bsForDisplay(bs);
+    let html='<div class="day-layout"><div class="day-header"><div class="time-gutter"></div><div class="day-col-header '+(isToday?'today':'')+'"><div class="dow">'+WEEKDAYS_FULL[ad.getDay()]+' · '+BS_MONTHS_NE[bdDisp.month-1]+' '+bdDisp.day+', '+bdDisp.year+'</div><div class="adNum">'+fmtAD(ad)+'</div></div></div>';
     const allDay=getEventsForAD(iso).filter(e=>e.allDay); const dayTasks=getTasksForAD(iso);
     html+='<div class="all-day-row day"><div class="all-day-label">all-day</div><div style="padding:4px;display:flex;gap:4px;flex-wrap:wrap">'; allDay.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<span class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</span>`; }); dayTasks.forEach(t=>{ html+=`<span class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}">✓ ${esc(t.title)}</span>`; }); html+='</div></div>';
     html+='<div class="time-grid day"><div class="time-labels">'; for(let h=0;h<24;h++) html+=`<div class="time-label">${h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'}</div>`; html+='</div><div class="day-column" data-iso="'+esc(iso)+'">'; for(let h=0;h<24;h++) html+=`<div class="hour-row"></div>`; getEventsForAD(iso).filter(e=>!e.allDay && e.startTime).forEach(ev=>{ const [sh,sm]=ev.startTime.split(':').map(Number); const [eh,em]=ev.endTime?ev.endTime.split(':').map(Number):[sh+1,sm]; const top=sh*42+(sm/60)*42; const h=Math.max(22, ((eh*60+em)-(sh*60+sm))/60*42); const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="timed-event" role="button" tabindex="0" data-id="${esc(ev.id)}" style="top:${top}px;height:${h}px;background:${esc(col)}"><div>${esc(ev.title)}</div><div class="ev-time">${esc(ev.startTime)} – ${esc(ev.endTime||'')}</div><div style="font-size:11px;opacity:.9">${esc(ev.description||'')}</div></div>`; }); html+='</div></div></div>';
@@ -790,7 +805,7 @@
     if(map.size===0){ container.innerHTML=`<div class="empty-state"><h3>No events or tasks</h3><p>Events & tasks for ${BS_MONTHS_NE[state.currentBS.month-1]} ${state.currentBS.year} will appear here. ${state.searchQuery?'Try clearing search.':''}</p><p style="margin-top:8px;font-size:12px">Tasks appear on their due date (yellow chips in month view).</p></div>`; return; }
     let html='<div class="schedule">';
     for(const {d,evs,tasks} of map.values()){
-      const b=Nep.adToBs(d);
+      const b=bsForDisplay(Nep.adToBs(d));
       html+=`<div class="schedule-group"><div class="schedule-date"><span class="sd-bs">${BS_MONTHS_NE[b.month-1]} ${b.day}, ${b.year}</span><span class="sd-ad">${fmtAD(d)}</span><span class="sd-dow">${WEEKDAYS_FULL[d.getDay()]}</span></div><div class="schedule-events">`;
       evs.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="schedule-event" role="button" tabindex="0" data-id="${esc(ev.id)}"><div class="se-time">${ev.allDay?'All day':esc(ev.startTime||'')+' – '+esc(ev.endTime||'')}</div><div class="se-dot" style="background:${esc(col)}"></div><div><div class="se-title">${esc(ev.title)}${ev.source==='google'?' · Google':''}</div><div class="se-desc">${esc(ev.description||'')}</div></div></div>`; });
       (tasks||[]).forEach(t=>{ html+=`<div class="schedule-task" role="button" tabindex="0" data-task="${esc(t.id)}"><div class="se-time">Task</div><div class="se-dot" style="background:var(--task)"></div><div><div class="se-title" style="${t.status==='completed'?'text-decoration:line-through;opacity:.6':''}">☐ ${esc(t.title)} · ${esc(t.listTitle||'Tasks')}</div><div class="se-desc">${t.due? 'Due '+esc(t.due):''}</div></div></div>`; });
@@ -868,7 +883,8 @@
         const ad=Nep.bsToAd(y,m,d), iso=toISO(ad);
         const isToday=today.year===y && today.month===m && today.day===d;
         const isSelected=state.currentBS.year===y && state.currentBS.month===m && state.currentBS.day===d;
-        html+=`<button type="button" class="date-picker-day ${isToday?'today':''} ${isSelected?'selected':''}" data-iso="${iso}"><span>${d}</span><small>${ad.getDate()}</small></button>`;
+        const disp = bsForDisplay({year:y, month:m, day:d}).day;
+        html+=`<button type="button" class="date-picker-day ${isToday?'today':''} ${isSelected?'selected':''}" data-iso="${iso}"><span>${disp}</span><small>${ad.getDate()}</small></button>`;
       }
       html+='</div>';
     } else {
@@ -881,7 +897,7 @@
       WEEKDAYS_EN.forEach((w,i)=> html+=`<div class="date-picker-weekday ${i===6?'saturday':''}">${w}</div>`);
       for(let i=0;i<firstDow;i++) html+='<div></div>';
       for(let d=1; d<=dim; d++){
-        const ad=new Date(y,m,d), iso=toISO(ad), bs=Nep.adToBs(ad);
+        const ad=new Date(y,m,d), iso=toISO(ad), bs=bsForDisplay(Nep.adToBs(ad));
         html+=`<button type="button" class="date-picker-day ${iso===todayISO?'today':''} ${iso===selectedISO?'selected':''}" data-iso="${iso}"><span>${d}</span><small>${BS_MONTHS_EN[bs.month-1]} ${bs.day}</small></button>`;
       }
       html+='</div>';

@@ -182,7 +182,8 @@
       }
       statusEl.textContent = 'Configured — public, anyone can sign in';
       statusEl.style.color = '#0b8043';
-      setDiag('Public mode: any visitor can sign in with their Google account (their data stays private to them). If "origin not allowed", add "'+origin+'" to Authorized JavaScript origins and verify consent if >100 users.', false);
+      const isPages = origin.includes('github.io');
+      setDiag((isPages ? 'Pages origin '+origin+' must be in Authorized JavaScript origins as https://abhinaytharu.github.io (no /calender, no trailing /). ' : '') + 'Public mode: any visitor can sign in. If popup closes instantly with no 2FA, origin is not authorized — add "'+origin+'" and https://abhinaytharu.github.io to Cloud Console, wait 5 min, hard reload.', false);
     }
     if(!isConfigured) return;
     if(!window.google || !google.accounts || !google.accounts.oauth2){ setTimeout(initGis, 800); return; }
@@ -197,14 +198,20 @@
             const lower = msg.toLowerCase();
             const isInvalidClient = lower.includes('invalid_client') || resp.error === 'invalid_client';
             const isTesting = lower.includes('can only be accessed by developer-approved testers') || lower.includes('being tested') || resp.error === 'access_not_configured';
+            const isPopupClosed = resp.error === 'popup_closed_by_user' || lower.includes('popup_closed') || lower.includes('popup closed');
+            const isAccessDenied = resp.error === 'access_denied' || lower.includes('access_denied');
             toast('Sign-in failed: '+msg, 5000);
             if(statusEl){ statusEl.textContent = 'Error: '+msg; statusEl.style.color='#d93025'; }
-            if(isTesting){
+            if(isPopupClosed){
+              setDiag('Popup closed before completing — if 2FA was sent but not received: check phone Google Prompt (tap Yes), Authenticator app, or SMS (may be delayed 1-2 min). Ensure popup not blocked and try again. Origin must be https://abhinaytharu.github.io for Pages.', true);
+            } else if(isAccessDenied){
+              setDiag('Access denied — you dismissed the consent or 2FA. If 2FA code not received: check SMS, Google Prompt on phone, or try “Try another way” in Google popup. Also ensure 2FA delivery (SMS) is not blocked by carrier.', true);
+            } else if(isTesting){
               setDiag('TESTING MODE: Add abhinaytharu5@gmail.com to Cloud Console → OAuth consent screen → Test users → + ADD USERS → Save. Or set Publishing status → In production (public, anyone with Gmail can log in — shows unverified warning until verified). Current: only Test users allowed.', true);
             } else if(isInvalidClient){
-              setDiag('INVALID_CLIENT for '+origin+' → Fix: 1) Cloud Console → APIs & Services → Credentials → click Client ID '+cid.slice(0,12)+'... → Authorized JavaScript origins → ADD "'+origin+'" (exact, no slash) 2) Save, wait 2-5 min. 3) Consent screen → Test users → ADD abhinaytharu5@gmail.com if Testing mode. Or switch to Production → In production. This error means Google does not recognize this origin for this Client ID.', true);
+              setDiag('INVALID_CLIENT for '+origin+' → Fix: 1) Cloud Console → APIs & Services → Credentials → click Client ID '+cid.slice(0,12)+'... → Authorized JavaScript origins → ADD "'+origin+'" and "https://abhinaytharu.github.io" (exact, no path, no trailing /) 2) Save, wait 2-5 min. 3) Hard reload deployed site. This error means Google does not recognize this origin.', true);
             } else {
-              setDiag('Error: '+msg+'. Common fixes: 1) Add "'+origin+'" to Authorized JavaScript origins 2) Add abhinaytharu5@gmail.com to OAuth consent → Test users 3) Check popup not blocked', true);
+              setDiag('Error: '+msg+'. If sign-in hung and 2FA not received: popup may be blocked, check phone Prompt, try SMS “Try another way”, ensure origin https://abhinaytharu.github.io is authorized, and that third-party cookies are allowed.', true);
             }
             return;
           }
@@ -273,7 +280,7 @@
       $('#settingsModal').classList.remove('hidden');
       return;
     }
-    try{ tokenClient.requestAccessToken({ prompt:'consent' }); }catch(e){ toast('Popup blocked? Allow popups and try again: '+e.message,4000); console.error(e); }
+    try{ toast('Opening Google sign-in — complete 2FA in popup if prompted (check phone Prompt/SMS)', 4000); tokenClient.requestAccessToken({ prompt:'consent' }); }catch(e){ toast('Popup blocked? Allow popups and try again: '+e.message,4000); console.error(e); }
   }
   function clearSynctokens(){
     try{

@@ -304,8 +304,11 @@ input, select, textarea { font: inherit; }
 }
 @media (max-width: 768px) {
   .calendar-toolbar { display: none; }
-  .main-container { height: calc(100vh - var(--topbar-h)) !important; height: calc(100dvh - var(--topbar-h)) !important; }
-  .topbar { gap: 6px; padding: 0 8px; --topbar-h: 56px; }
+  .main-container { height: calc(100vh - var(--topbar-h) - 44px) !important; height: calc(100dvh - var(--topbar-h) - 44px) !important; }
+  .topbar { gap: 4px; padding: 6px 8px; --topbar-h: 56px; flex-wrap: wrap; height: auto; min-height: 56px; align-content: flex-start; }
+  .topbar-left { flex-wrap: wrap; gap: 6px; }
+  .date-nav { order: 10; width: 100%; justify-content: center; margin-top: 6px; padding-top: 8px; border-top: 1px solid var(--border-light); }
+  .date-nav .current-period-btn { flex: 0 1 auto; }
   .brand-sub { display: none; }
   .app-title { font-size: 15px; }
   .app-title::before { width: 30px; height: 30px; background-size: 20px; }

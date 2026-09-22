@@ -594,26 +594,44 @@
   }
   function isRecurringOnDate(ev, iso){
     if(!ev.recurrence || ev.recurrence==='none') return false;
-    if(ev.date === iso) return true; // original date always
-    const start = parseISO(ev.date);
-    const target = parseISO(iso);
-    if(target < start) return false;
-    // Limit to 2 years to avoid infinite
-    const diffDays = Math.floor((target - start)/86400000);
-    if(diffDays > 730) return false;
-    if(ev.recurrence==='daily') return true;
-    if(ev.recurrence==='weekly') return diffDays % 7 === 0;
-    if(ev.recurrence==='monthly') return target.getDate() === start.getDate();
-    if(ev.recurrence==='yearly') return target.getDate()===start.getDate() && target.getMonth()===start.getMonth();
-    return false;
+    if(ev.date === iso) return true;
+    // Use Nepal dates for comparison to avoid timezone off-by-one
+    try{
+      const startStr = ev.date;
+      const targetStr = iso;
+      const sParts = startStr.split('-').map(Number);
+      const tParts = targetStr.split('-').map(Number);
+      const sDate = new Date(sParts[0], sParts[1]-1, sParts[2]);
+      const tDate = new Date(tParts[0], tParts[1]-1, tParts[2]);
+      if(tDate < sDate) return false;
+      const diffDays = Math.floor((tDate - sDate)/86400000);
+      if(diffDays > 730) return false;
+      if(ev.recurrence==='daily') return true;
+      if(ev.recurrence==='weekly') return diffDays % 7 === 0;
+      if(ev.recurrence==='monthly') return tParts[2] === sParts[2];
+      if(ev.recurrence==='yearly') return tParts[2]===sParts[2] && tParts[1]===sParts[1];
+      return false;
+    }catch(e){
+      const start = parseISO(ev.date);
+      const target = parseISO(iso);
+      if(target < start) return false;
+      const diffDays = Math.floor((target - start)/86400000);
+      if(diffDays > 730) return false;
+      if(ev.recurrence==='daily') return true;
+      if(ev.recurrence==='weekly') return diffDays % 7 === 0;
+      if(ev.recurrence==='monthly') return target.getDate() === start.getDate();
+      if(ev.recurrence==='yearly') return target.getDate()===start.getDate() && target.getMonth()===start.getMonth();
+      return false;
+    }
   }
   function getEventsForAD(iso){
-    const direct = allVisibleEvents().filter(e=> e.date===iso);
-    // Expand local recurring events that occur on this date (but not already direct)
-    const recurring = allVisibleEvents().filter(e=> e.recurrence && e.recurrence!=='none' && e.date!==iso && isRecurringOnDate(e, iso));
-    // Clone recurring for display with same id but different date for key
-    const expanded = recurring.map(e=> ({...e, _isRecurringInstance:true, _instanceDate:iso, date: iso}));
-    return [...direct, ...expanded];
+    const all = allVisibleEvents();
+    const direct = all.filter(e=> e.date===iso);
+    const recurring = all.filter(e=> e.recurrence && e.recurrence!=='none' && e.date!==iso && isRecurringOnDate(e, iso));
+    const expanded = recurring.map(e=> ({...e, _isRecurringInstance:true, _instanceDate:iso, date: iso, id: e.id + '_r_' + iso}));
+    const result = [...direct, ...expanded];
+    if(recurring.length>0) console.log('[Recurring] '+iso+' direct:'+direct.length+' expanded:'+expanded.length+' total:'+result.length);
+    return result;
   }
   function getTasksForAD(iso){
     if(!state.showTasksOnCalendar) return [];

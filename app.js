@@ -1004,6 +1004,12 @@
     updateNepalClock();
     setInterval(updateNepalClock, 1000);
     setInterval(updateNowLine, 60000);
+    const brand = document.getElementById('brandHome');
+    if(brand){
+      const goHome = ()=> { window.location.reload(); };
+      brand.addEventListener('click', goHome);
+      brand.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); goHome(); }});
+    }
     // Clamp AD inputs to supported BS range 2075-2090
     try{
       const minAD = toISO(BS_REF.ad);

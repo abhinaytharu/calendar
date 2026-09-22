@@ -1081,7 +1081,31 @@
       }
       closeModal(); renderAll();
     });
-    $('#eventAllDay').addEventListener('change', e=> $('#timeRow').style.display= e.target.checked? 'none':'flex');
+    const allDayChk = $('#eventAllDay');
+    const timeInputs = document.querySelectorAll('#eventStartTime, #eventEndTime');
+    if(allDayChk){
+      allDayChk.addEventListener('change', e=>{
+        const hide = e.target.checked;
+        timeInputs.forEach(inp=> inp.closest('.modern-input') ? inp.closest('.modern-input').style.display = hide ? 'none' : '' : inp.style.display = hide ? 'none' : '');
+        // keep timeRow visible for switch, just hide inputs
+        document.querySelectorAll('#timeRow .modern-input').forEach(el=> el.style.display = hide ? 'none' : '');
+        const dash = document.querySelector('#timeRow span');
+        if(dash) dash.style.display = hide ? 'none' : '';
+      });
+    }
+    // Calendar dot color
+    const calSelect = $('#eventCalendar');
+    const calDot = $('#eventCalendarDot');
+    function updateCalDot(){
+      const calId = calSelect.value;
+      const cal = state.calendars[calId];
+      if(calDot && cal) calDot.style.background = cal.color;
+    }
+    if(calSelect && calDot){
+      calSelect.addEventListener('change', updateCalDot);
+      // initial
+      setTimeout(updateCalDot, 100);
+    }
     $('#eventDate').addEventListener('change', e=>{ const ad=parseISO(e.target.value); const bs=Nep.adToBs(ad); $('#bsHint').textContent=`BS: ${BS_MONTHS_NE[bs.month-1]} ${bs.day}, ${bs.year}`; });
     form.addEventListener('submit', async e=>{
       e.preventDefault();

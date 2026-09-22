@@ -532,10 +532,15 @@
       const ids = items.map(i=>i.id);
       const allTasks=[];
       for(const lid of ids){
-        try{
-          const tdata=await gFetch(`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(lid)}/tasks?showCompleted=true&showHidden=false&maxResults=100`);
-          (tdata.items||[]).forEach(t=> allTasks.push({ id:t.id, title:t.title||'(No title)', status:t.status, due:t.due? t.due.slice(0,10):'', updated:t.updated, listId:lid, listTitle: items.find(x=>x.id===lid)?.title||'' }));
-        }catch(e){ console.warn('[Tasks] list',lid,e); }
+        let pageToken='';
+        do{
+          try{
+            const url=`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(lid)}/tasks?showCompleted=true&showHidden=true&showDeleted=false&maxResults=100` + (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '');
+            const tdata=await gFetch(url);
+            (tdata.items||[]).forEach(t=> allTasks.push({ id:t.id, title:t.title||'(No title)', status:t.status, due:t.due? t.due.slice(0,10):'', updated:t.updated, listId:lid, listTitle: items.find(x=>x.id===lid)?.title||'' }));
+            pageToken = tdata.nextPageToken || '';
+          }catch(e){ console.warn('[Tasks] list',lid,e); break; }
+        }while(pageToken);
       }
       state.google.taskListId = state.google.taskListId || items[0].id;
       saveGoogle();

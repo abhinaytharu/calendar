@@ -327,7 +327,7 @@ input, select, textarea { font: inherit; }
   .nav-btn.today-btn { display: none; }
   .topbar-right { flex: 0 0 auto; gap: 2px; min-width: 0; }
   .create-btn { display: none; }
-  .fab.hidden { display: grid !important; }
+  .fab, .fab.hidden { display: none !important; }
   .sync-badge { display: inline-block !important; font-size: 0; width: 10px; height: 10px; padding: 0; border-radius: 50%; background: #0b8043; border: 2px solid var(--surface); overflow: hidden; vertical-align: middle; }
   .user-info { display: none; }
   .theme-toggle, .icon-btn { width: 36px; height: 36px; min-width: 36px; flex-shrink: 0; }

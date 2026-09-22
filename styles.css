@@ -393,6 +393,47 @@ input, select, textarea { font: inherit; }
   .nepal-clock { padding: 6px 12px; font-size: 13px; gap: 8px; }
 }
 
+/* Modern Settings */
+.settings-modal { width: min(640px, 100%); max-height: 88vh; }
+.settings-header { padding: 16px 20px; background: linear-gradient(135deg, var(--primary-soft) 0%, var(--surface) 100%); border-bottom: 1px solid var(--border-light); }
+.settings-header-left { display: flex; align-items: center; gap: 12px; }
+.settings-icon { width: 36px; height: 36px; border-radius: 10px; background: var(--primary); color: #fff; display: grid; place-items: center; }
+.settings-subtitle { font-size: 12px; color: var(--text-secondary); margin: 2px 0 0 0; font-weight: 400; }
+.settings-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: calc(88vh - 70px); }
+.settings-card { display: flex; gap: 12px; padding: 14px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--bg); }
+.settings-card.highlight { background: #e6f4ea; border-color: #a8dab5; }
+[data-theme="dark"] .settings-card.highlight { background: #1e3a2a; border-color: #2d5a3d; }
+.settings-card-icon { width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; }
+.settings-card-content h4 { font-size: 13px; font-weight: 600; margin: 0 0 4px 0; }
+.settings-card-content p { font-size: 12px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+.settings-section { background: var(--surface); border: 1px solid var(--border-light); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.settings-section-header { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-light); }
+.settings-section-icon { width: 28px; height: 28px; border-radius: 8px; background: var(--bg); color: var(--primary); display: grid; place-items: center; border: 1px solid var(--border-light); }
+.settings-section-header h3 { font-size: 13px; font-weight: 600; margin: 0; }
+.settings-desc { font-size: 12px; color: var(--text-muted); margin: 0; line-height: 1.5; }
+.settings-field { display: flex; flex-direction: column; gap: 8px; background: var(--bg); border: 1px solid var(--border-light); border-radius: 8px; padding: 12px; }
+.settings-field-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; align-items: center; }
+.settings-label { color: var(--text-secondary); font-weight: 500; white-space: nowrap; }
+.settings-code { background: var(--surface); border: 1px solid var(--border); padding: 4px 8px; border-radius: 6px; font-size: 11px; word-break: break-all; flex: 1; text-align: right; max-width: 60%; }
+.settings-status { font-weight: 600; font-size: 12px; }
+.settings-value { font-size: 12px; font-weight: 500; }
+.switch-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
+.switch-row:last-child { border-bottom: none; }
+.switch-text { display: flex; flex-direction: column; gap: 2px; }
+.switch-text span { font-size: 13px; font-weight: 500; }
+.switch-text small { font-size: 11px; color: var(--text-muted); }
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: var(--border); border-radius: 24px; transition: .2s; cursor: pointer; }
+.slider:before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.switch input:checked + .slider { background: var(--primary); }
+.switch input:checked + .slider:before { transform: translateX(20px); }
+.modern-input, .modern-select { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; transition: border-color .15s, box-shadow .15s; }
+.modern-input:focus, .modern-select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+.settings-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.modern-hint { background: var(--bg); border: 1px solid var(--border-light); border-radius: 8px; padding: 10px 12px; font-size: 12px; }
+.modern-hint.hidden { display: none !important; }
+
 @keyframes pulse { 0%{opacity:.6} 50%{opacity:1} 100%{opacity:.6} }
 
 [data-theme="dark"] { --cal-personal: #8ab4f8; --cal-work: #81c995; --cal-family: #f28b82; --cal-holiday: #fbbc04; }

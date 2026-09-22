@@ -220,58 +220,94 @@
     </div>
 
     <div class="modal-overlay hidden" id="settingsModal">
-        <div class="modal" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
-            <div class="modal-header">
-                <h2 id="settingsTitle">Settings</h2>
-                <button class="modal-close" id="settingsClose" aria-label="Close"><svg aria-hidden="true" focusable="false" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+        <div class="modal settings-modal" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
+            <div class="modal-header settings-header">
+                <div class="settings-header-left">
+                    <div class="settings-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></div>
+                    <div>
+                        <h2 id="settingsTitle">Settings</h2>
+                        <p class="settings-subtitle">Manage your calendar preferences</p>
+                    </div>
+                </div>
+                <button class="modal-close" id="settingsClose" aria-label="Close"><svg aria-hidden="true" focusable="false" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             </div>
-            <div class="modal-form">
-                <div class="settings-group" style="border:2px solid #0b8043; background:#e6f4ea">
-                    <h4>🌍 Public Mode</h4>
-                    <p class="hint" style="background:#fff">Anyone visiting this site can <b>sign in with their Google account</b> — their calendar stays private to them (per-browser token, never shared). For production, verify your OAuth consent screen.</p>
+            <div class="settings-body">
+                <div class="settings-card highlight">
+                    <div class="settings-card-icon" style="background:#e6f4ea; color:#0b8043"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg></div>
+                    <div class="settings-card-content">
+                        <h4>Public Mode</h4>
+                        <p>Anyone visiting can sign in with Google — per-browser tokens, never shared. Verify OAuth consent for production.</p>
+                    </div>
                 </div>
-                <div class="settings-group">
-                    <h4>Google Integration</h4>
-                    <p class="hint">If login fails for any user, ensure their origin is in <b>Authorized JavaScript origins</b> (shown below). Add all localhost ports and your production domain(s).</p>
-                    <div class="settings-row"><span>Current origin</span><code id="cfgOrigin" style="word-break:break-all; background:var(--bg); padding:2px 6px; border-radius:4px"></code></div>
-                    <div class="settings-row"><span>Client ID</span><code id="cfgClientId" style="word-break:break-all"></code></div>
-                    <div class="settings-row"><span>Status</span><span id="cfgStatus"></span></div>
+
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <div class="settings-section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="20" y1="8" x2="20" y2="14"></line><line x1="23" y1="11" x2="17" y2="11"></line></svg></div>
+                        <h3>Google Integration</h3>
+                    </div>
+                    <p class="settings-desc">Add your origin to Authorized JavaScript origins if login fails.</p>
+                    <div class="settings-field">
+                        <div class="settings-field-row"><span class="settings-label">Current origin</span><code id="cfgOrigin" class="settings-code"></code></div>
+                        <div class="settings-field-row"><span class="settings-label">Client ID</span><code id="cfgClientId" class="settings-code"></code></div>
+                        <div class="settings-field-row"><span class="settings-label">Status</span><span id="cfgStatus" class="settings-status"></span></div>
+                    </div>
                     <div class="form-group">
-                        <label for="clientIdInput">Override Client ID (optional, saved locally)</label>
-                        <input type="text" id="clientIdInput" placeholder="Paste Client ID ending in .apps.googleusercontent.com">
+                        <label for="clientIdInput">Override Client ID</label>
+                        <input type="text" id="clientIdInput" class="modern-input" placeholder="Paste Client ID ending in .apps.googleusercontent.com">
                     </div>
-                    <div style="display:flex; gap:8px">
-                        <button class="btn secondary" id="saveClientIdBtn">Save ID</button>
-                        <button class="btn secondary" id="reconnectBtn">Try Sign In</button>
-                        <button class="btn secondary" id="clearClientIdBtn">Clear override</button>
+                    <div class="settings-actions">
+                        <button class="btn secondary" id="saveClientIdBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg> Save</button>
+                        <button class="btn primary" id="reconnectBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8V3h-5l2.26 2.26A7 7 0 1 0 21 12z"></path></svg> Sign In</button>
+                        <button class="btn secondary" id="clearClientIdBtn">Clear</button>
                     </div>
-                    <p class="hint" id="cfgDiag" style="display:none"></p>
+                    <div class="hint modern-hint hidden" id="cfgDiag"></div>
                 </div>
-                <div class="settings-group">
-                    <h4>Appearance</h4>
-                    <label class="checkbox-label"><input type="checkbox" id="showAdToggle" checked><span>Show AD overlay in cells</span></label>
-                    <label class="checkbox-label"><input type="checkbox" id="showTasksToggle" checked><span>Show Tasks on calendar dates</span></label>
-                    <div style="display:flex; align-items:center; gap:8px; margin-top:8px">
-                        <span style="font-size:12px; font-weight:500; color:var(--text-secondary)">Theme</span>
-                        <select id="themeSelect" style="flex:1; padding:8px; border:1px solid var(--border); border-radius:4px; background:var(--surface); color:var(--text)">
+
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <div class="settings-section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16a4 4 0 0 1 0-8 4 4 0 0 1 0 8z"></path></svg></div>
+                        <h3>Appearance</h3>
+                    </div>
+                    <label class="switch-row">
+                        <div class="switch-text"><span>Show AD overlay</span><small>Gregorian date in month cells</small></div>
+                        <label class="switch"><input type="checkbox" id="showAdToggle" checked><span class="slider"></span></label>
+                    </label>
+                    <label class="switch-row">
+                        <div class="switch-text"><span>Show Tasks on dates</span><small>Due-date chips on calendar</small></div>
+                        <label class="switch"><input type="checkbox" id="showTasksToggle" checked><span class="slider"></span></label>
+                    </label>
+                    <div class="settings-field">
+                        <span class="settings-label">Theme</span>
+                        <select id="themeSelect" class="modern-select">
                             <option value="auto">Auto (system)</option>
                             <option value="light">Light</option>
                             <option value="dark">Dark</option>
                         </select>
                     </div>
                 </div>
-                <div class="settings-group">
-                    <h4>Time & Timezone</h4>
-                    <p class="hint">All dates use <b>Asia/Kathmandu (NPT, UTC+5:45)</b> — BS conversion is Nepal-local. Day is correct, time was one day ahead due to browser local vs Nepal offset; now fixed.</p>
-                    <div class="settings-row"><span>Nepal Time</span><code id="settingsNepalTime" style="background:var(--bg); padding:2px 6px; border-radius:4px"></code></div>
-                    <div class="settings-row"><span>Timezone</span><span>Asia/Kathmandu (UTC+5:45)</span></div>
-                    <div class="settings-row"><span>BS Reference</span><span>2075-01-01 = 2018-04-14 NPT</span></div>
+
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <div class="settings-section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                        <h3>Time & Timezone</h3>
+                    </div>
+                    <p class="settings-desc">All dates use <b>Asia/Kathmandu (UTC+5:45)</b>. BS 2075-01-01 = 2018-04-14 NPT.</p>
+                    <div class="settings-field">
+                        <div class="settings-field-row"><span class="settings-label">Nepal Time</span><code id="settingsNepalTime" class="settings-code"></code></div>
+                        <div class="settings-field-row"><span class="settings-label">Timezone</span><span class="settings-value">Asia/Kathmandu (NPT)</span></div>
+                    </div>
                 </div>
-                <div class="settings-group">
-                    <h4>Data</h4>
-                    <button class="btn secondary" id="exportBtn">Export events (.json)</button>
-                    <label class="btn secondary" style="display:inline-flex;align-items:center;cursor:pointer"><input type="file" id="importFile" accept=".json" hidden>Import</label>
-                    <button class="btn danger" id="clearBtn">Clear local data</button>
+
+                <div class="settings-section">
+                    <div class="settings-section-header">
+                        <div class="settings-section-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg></div>
+                        <h3>Data</h3>
+                    </div>
+                    <div class="settings-actions">
+                        <button class="btn secondary" id="exportBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg> Export</button>
+                        <label class="btn secondary"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg> Import<input type="file" id="importFile" accept=".json" hidden></label>
+                        <button class="btn danger" id="clearBtn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg> Clear</button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -18,7 +18,14 @@
   const BS_REF = { y:2075, m:1, d:1, ad: new Date(2018,3,14) };
   function daysInBS(y,m){ return (BS_DATA[y]||BS_DATA[2082])[m-1] || 30; }
   function toADFallback(bsY,bsM,bsD){ let days=0; for(let y=BS_REF.y;y<bsY;y++) for(let mm=1;mm<=12;mm++) days+=daysInBS(y,mm); for(let mm=1;mm<bsM;mm++) days+=daysInBS(bsY,mm); days+=bsD-1; const d=new Date(BS_REF.ad); d.setDate(d.getDate()+days); return d; }
-  function toBSFallback(adDate){ let days=Math.floor((adDate - BS_REF.ad)/86400000); let y=BS_REF.y,m=1; while(true){ const dim=daysInBS(y,m); if(days<dim) break; days-=dim; m++; if(m>12){m=1;y++;} if(y>2090) break; } return {year:y,month:m,day:days+1}; }
+  function toBSFallback(adDate){
+    const maxAD = toADFallback(2090,12,30);
+    if(adDate < BS_REF.ad) return {year:2075, month:1, day:1};
+    if(adDate > maxAD) return {year:2090, month:12, day:30};
+    let days=Math.floor((adDate - BS_REF.ad)/86400000); let y=BS_REF.y,m=1;
+    while(true){ const dim=daysInBS(y,m); if(days<dim) break; days-=dim; m++; if(m>12){m=1;y++;} if(y>2090) return {year:2090, month:12, day:30}; }
+    return {year:y, month:m, day:days+1};
+  }
   function detectLib(){ const w=window; const c=[w.NepaliDates,w.NepaliDate,w.nepaliDates,w['nepali-dates'],w.NepaliPatro]; for(const x of c) if(x) return x; if(w.convertADToBS && w.convertBSToAD) return w; return null; }
   const Nep = {
     lib: detectLib(),
@@ -36,6 +43,47 @@
   function toast(msg, ms=2200){ const el=$('#toast'); el.textContent=msg; el.classList.remove('hidden'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hidden'), ms); }
   // XSS-safe escaping for any Google/user-controlled text inserted via innerHTML
   function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function debounce(fn, ms){ let id; return (...a)=>{ clearTimeout(id); id=setTimeout(()=>fn(...a), ms); }; }
+  function highlight(text, q){
+    if(!q) return esc(text);
+    const idx = text.toLowerCase().indexOf(q.toLowerCase());
+    if(idx===-1) return esc(text);
+    const before = esc(text.slice(0, idx));
+    const match = esc(text.slice(idx, idx+q.length));
+    const after = esc(text.slice(idx+q.length));
+    return before + '<mark style="background:#fff59d;padding:0 1px;border-radius:2px">'+match+'</mark>' + after;
+  }
+  // A11y: keyboard activation for chips and focus trap for modals
+  function handleChipKey(e){
+    if(e.target.matches('[role="button"][tabindex="0"]') && (e.key==='Enter' || e.key===' ')){
+      e.preventDefault(); e.target.click();
+    }
+  }
+  document.addEventListener('keydown', handleChipKey);
+  let lastFocus=null;
+  function trapModal(modal){
+    const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if(!focusable.length) return;
+    const first=focusable[0], last=focusable[focusable.length-1];
+    function onKey(e){
+      if(e.key==='Tab'){
+        if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+        else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+      }
+      if(e.key==='Escape'){ closeModal(); document.getElementById('settingsModal')?.classList.add('hidden'); document.getElementById('datePickerModal')?.classList.add('hidden'); if(lastFocus) lastFocus.focus(); }
+    }
+    modal.addEventListener('keydown', onKey);
+    modal._trapHandler=onKey;
+    lastFocus=document.activeElement;
+    setTimeout(()=> first.focus(), 50);
+  }
+  function releaseModal(modal){
+    if(modal && modal._trapHandler){ modal.removeEventListener('keydown', modal._trapHandler); delete modal._trapHandler; }
+    if(lastFocus){ try{ lastFocus.focus(); }catch(e){} lastFocus=null; }
+  }
+  function safeJSON(key, fallback){
+    try{ const v=localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ console.warn('[Storage] corrupt', key, e); try{ localStorage.removeItem(key); }catch(_e){} return fallback; }
+  }
 
   const state = {
     currentView: 'month',
@@ -45,11 +93,11 @@
     datePickerSystem: 'bs',
     datePickerBS: null,
     datePickerAD: null,
-    showAD: JSON.parse(localStorage.getItem('np_showAD')||'true'),
-    showTasksOnCalendar: JSON.parse(localStorage.getItem('np_showTasks')||'true'),
+    showAD: safeJSON('np_showAD', true),
+    showTasksOnCalendar: safeJSON('np_showTasks', true),
     theme: localStorage.getItem('np_theme')||'auto',
-    events: JSON.parse(localStorage.getItem('np_events')||'[]'),
-    calendars: JSON.parse(localStorage.getItem('np_cals')||'null') || {
+    events: safeJSON('np_events', []),
+    calendars: safeJSON('np_cals', null) || {
       personal:{label:'Personal', color:'#039be5', visible:true, source:'local'},
       work:{label:'Work', color:'#0b8043', visible:true, source:'local'},
       family:{label:'Family', color:'#d50000', visible:true, source:'local'},
@@ -59,8 +107,8 @@
     google: {
       token: localStorage.getItem('np_g_token')||null,
       expiry: Number(localStorage.getItem('np_g_exp')||0),
-      user: JSON.parse(localStorage.getItem('np_g_user')||'null'),
-      calendars: JSON.parse(localStorage.getItem('np_g_cals')||'[]'),
+      user: safeJSON('np_g_user', null),
+      calendars: safeJSON('np_g_cals', []),
       events: [],
       tasks: [],
       taskListId: localStorage.getItem('np_g_tasklist')||null,
@@ -184,9 +232,17 @@
   }
   async function fetchGoogleUser(){
     try{
+      const prevEmail = state.google.user?.email;
       const r=await fetch('https://www.googleapis.com/oauth2/v3/userinfo', { headers:{ Authorization:'Bearer '+state.google.token }});
       if(!r.ok) throw new Error('userinfo '+r.status);
-      state.google.user=await r.json();
+      const newUser = await r.json();
+      if(prevEmail && newUser.email && prevEmail !== newUser.email){
+        // Different user - clear stale synctokens and g_ calendars
+        clearSynctokens();
+        Object.keys(state.calendars).forEach(k=>{ if(k.startsWith('g_')) delete state.calendars[k]; });
+        saveLocal();
+      }
+      state.google.user=newUser;
       saveGoogle();
     }catch(e){ console.warn(e); }
   }
@@ -219,13 +275,22 @@
     }
     try{ tokenClient.requestAccessToken({ prompt:'consent' }); }catch(e){ toast('Popup blocked? Allow popups and try again: '+e.message,4000); console.error(e); }
   }
+  function clearSynctokens(){
+    try{
+      const keys = Object.keys(localStorage);
+      keys.forEach(k=>{ if(k.startsWith('np_g_synctoken_')) localStorage.removeItem(k); });
+    }catch(e){}
+  }
   function signOut(){
     if(state.google.token){
       try{ fetch('https://oauth2.googleapis.com/revoke?token='+state.google.token, { method:'POST' }); }catch(e){}
     }
     state.google.token=null; state.google.user=null; state.google.events=[]; state.google.calendars=[]; state.google.tasks=[]; state.google.expiry=0;
     localStorage.removeItem('np_g_token'); localStorage.removeItem('np_g_user'); localStorage.removeItem('np_g_cals');
-    saveGoogle(); updateAuthUI(); renderAll(); toast('Signed out');
+    clearSynctokens();
+    // Remove g_ calendars so next user doesn't see previous user's colors
+    Object.keys(state.calendars).forEach(k=>{ if(k.startsWith('g_')) delete state.calendars[k]; });
+    saveLocal(); saveGoogle(); updateAuthUI(); renderAll(); toast('Signed out');
   }
 
   // Google Calendar API — now via OGCS-inspired engine (app.google-sync.js)
@@ -250,10 +315,12 @@
   }
   async function syncGoogleEvents(){
     if(!isTokenValid() || !state.google.calendars.length) return;
-    // Expand window to show events even if BS month has none: ±15 days around BS month
+    // Window covers BS month ±15 plus schedule 60-day view (start to start+60)
     const y=state.currentBS.year, m=state.currentBS.month;
     let startAD=Nep.bsToAd(y,m,1); let endAD=Nep.bsToAd(y,m, Nep.daysInMonth(y,m));
+    const schedEnd = new Date(startAD); schedEnd.setDate(startAD.getDate()+60);
     startAD.setDate(startAD.getDate()-15); endAD.setDate(endAD.getDate()+16);
+    if(schedEnd > endAD) endAD = schedEnd;
     if(window.OGCS){
       try{
         const token=await ensureToken();
@@ -355,7 +422,7 @@
       const allTasks=[];
       for(const lid of ids){
         try{
-          const tdata=await gFetch(`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(lid)}/tasks?showCompleted=false&maxResults=100`);
+          const tdata=await gFetch(`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(lid)}/tasks?showCompleted=true&showHidden=false&maxResults=100`);
           (tdata.items||[]).forEach(t=> allTasks.push({ id:t.id, title:t.title||'(No title)', status:t.status, due:t.due? t.due.slice(0,10):'', updated:t.updated, listId:lid, listTitle: items.find(x=>x.id===lid)?.title||'' }));
         }catch(e){ console.warn('[Tasks] list',lid,e); }
       }
@@ -378,7 +445,7 @@
   }
   async function taskCreate(title, due){
     const listId=state.google.taskListId; if(!listId) { toast('Sign in to create tasks'); return; }
-    const body={ title }; if(due) body.due=new Date(due).toISOString();
+    const body={ title }; if(due){ const d=new Date(due+'T00:00:00'); body.due=d.toISOString(); }
     await gFetch(`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks`, { method:'POST', body: JSON.stringify(body)});
     await syncGoogleTasks(); renderTasks();
   }
@@ -442,6 +509,7 @@
     } else {
       el.textContent=`${BS_MONTHS_NE[state.currentBS.month-1]} ${state.currentBS.year} — Schedule`;
     }
+    if(el) el.title = el.textContent;
   }
   function renderMini(){
     const y=state.currentBS.year,m=state.currentBS.month;
@@ -522,6 +590,11 @@
     });
   }
   function renderMonth(){
+    if(state.searchQuery && allVisibleEvents().length===0 && state.google.tasks.filter(t=> !t.due || hasTasksForAD(t.due)).length===0){
+      const c=$('#monthView');
+      c.innerHTML=`<div class="empty-state"><h3>No results for "${esc(state.searchQuery)}"</h3><p>Try a different search or clear it.</p><button class="btn secondary" onclick="document.getElementById('searchInput').value='';document.getElementById('mobileSearchInput').value='';state.searchQuery='';renderAll()" style="margin-top:8px">Clear search</button></div>`;
+      return;
+    }
     const y=state.currentBS.year,m=state.currentBS.month;
     const dim=Nep.daysInMonth(y,m), firstAD=Nep.bsToAd(y,m,1), firstDow=firstAD.getDay();
     const todayBS=Nep.todayBS();
@@ -548,10 +621,10 @@
         combined.forEach(item=>{
           if(item.kind==='event'){
             const ev=item.data; const col = ev.color || state.calendars[ev.calendarId]?.color || '#039be5';
-            html+=`<div class="event-chip" data-id="${esc(ev.id)}" style="background:${esc(col)}" title="${esc(ev.title)}">${esc(ev.title)}</div>`;
+            html+=`<div class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}" title="${esc(ev.title)}">${highlight(ev.title, state.searchQuery)}</div>`;
           } else {
             const t=item.data;
-            html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" data-task="${esc(t.id)}" title="${esc(t.title)} — ${esc(t.listTitle||'Tasks')}">✓ ${esc(t.title||'(No title)')}</div>`;
+            html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}" title="${esc(t.title)} — ${esc(t.listTitle||'Tasks')}">✓ ${esc(t.title||'(No title)')}</div>`;
           }
         });
         if(remaining>0) html+=`<div class="more-link">+${remaining} more</div>`;
@@ -574,6 +647,12 @@
     container.querySelectorAll('.task-chip').forEach(ch=> ch.addEventListener('click', e=>{ e.stopPropagation(); const id=ch.dataset.task; const t=state.google.tasks.find(x=>x.id===id); if(t) taskToggle(t.id, t.status!=='completed'); }));
   }
   function renderWeek(){
+    if(state.searchQuery && allVisibleEvents().length===0){
+      const c=$('#weekView');
+      c.innerHTML=`<div class="empty-state"><h3>No results for "${esc(state.searchQuery)}"</h3><p>Try a different search.</p></div>`;
+      c.classList.remove('hidden');
+      return;
+    }
     const bs=state.currentBS, centerAD=Nep.bsToAd(bs.year,bs.month,bs.day), dow=centerAD.getDay();
     const ws=new Date(centerAD); ws.setDate(ws.getDate()-dow);
     const todayISO=toISO(new Date());
@@ -581,14 +660,14 @@
     let html='<div class="week-layout"><div class="week-header"><div class="time-gutter"></div>';
     for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const b=Nep.adToBs(d); html+=`<div class="day-col-header ${toISO(d)===todayISO?'today':''}"><div class="dow">${WEEKDAYS_EN[d.getDay()]}</div><div class="bsNum">${b.day}</div><div class="adNum">${d.getDate()} ${d.toLocaleDateString('en-US',{month:'short'})}</div><div style="font-size:10px;color:var(--text-muted)">${BS_MONTHS_NE[b.month-1]}</div></div>`; }
     html+='</div><div class="all-day-row week"><div class="all-day-label">all-day</div>';
-    for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const iso=toISO(d); const evs=getEventsForAD(iso).filter(e=>e.allDay); const tasks=getTasksForAD(iso); html+=`<div style="border-left:1px solid var(--border-light);padding:2px;display:flex;flex-direction:column;gap:2px">`; evs.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="event-chip" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</div>`; }); tasks.forEach(t=>{ html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" data-task="${esc(t.id)}">✓ ${esc(t.title)}</div>`; }); html+=`</div>`; }
+    for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const iso=toISO(d); const evs=getEventsForAD(iso).filter(e=>e.allDay); const tasks=getTasksForAD(iso); html+=`<div style="border-left:1px solid var(--border-light);padding:2px;display:flex;flex-direction:column;gap:2px">`; evs.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</div>`; }); tasks.forEach(t=>{ html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}">✓ ${esc(t.title)}</div>`; }); html+=`</div>`; }
     html+='</div><div class="time-grid week"><div class="time-labels">'; for(let h=0;h<24;h++) html+=`<div class="time-label">${h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'}</div>`; html+='</div>';
-    for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const iso=toISO(d); const timed=getEventsForAD(iso).filter(e=>!e.allDay && e.startTime); html+=`<div class="day-column" data-iso="${esc(iso)}">`; for(let h=0;h<24;h++) html+=`<div class="hour-row" data-hour="${h}"></div>`; timed.forEach(ev=>{ const [sh,sm]=ev.startTime.split(':').map(Number); const [eh,em]=ev.endTime?ev.endTime.split(':').map(Number):[sh+1,sm]; const top=sh*48+(sm/60)*48; const h=Math.max(22, ((eh*60+em)-(sh*60+sm))/60*48); const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="timed-event" data-id="${esc(ev.id)}" style="top:${top}px;height:${h}px;background:${esc(col)}"><div>${esc(ev.title)}</div><div class="ev-time">${esc(ev.startTime)} – ${esc(ev.endTime||'')}</div></div>`; }); html+=`</div>`; }
+    for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const iso=toISO(d); const timed=getEventsForAD(iso).filter(e=>!e.allDay && e.startTime); html+=`<div class="day-column" data-iso="${esc(iso)}">`; for(let h=0;h<24;h++) html+=`<div class="hour-row" data-hour="${h}"></div>`; timed.forEach(ev=>{ const [sh,sm]=ev.startTime.split(':').map(Number); const [eh,em]=ev.endTime?ev.endTime.split(':').map(Number):[sh+1,sm]; const top=sh*42+(sm/60)*42; const h=Math.max(22, ((eh*60+em)-(sh*60+sm))/60*42); const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="timed-event" role="button" tabindex="0" data-id="${esc(ev.id)}" style="top:${top}px;height:${h}px;background:${esc(col)}"><div>${esc(ev.title)}</div><div class="ev-time">${esc(ev.startTime)} – ${esc(ev.endTime||'')}</div></div>`; }); html+=`</div>`; }
     html+='</div></div>';
     container.innerHTML=html;
     container.querySelectorAll('.timed-event,.event-chip').forEach(el=> el.addEventListener('click', ()=> openEdit(el.dataset.id)));
     container.querySelectorAll('.task-chip').forEach(el=> el.addEventListener('click', e=>{ e.stopPropagation(); const id=el.dataset.task; const t=state.google.tasks.find(x=>x.id===id); if(t) taskToggle(t.id, t.status!=='completed'); }));
-    container.querySelectorAll('.day-column').forEach(col=> col.addEventListener('click', e=>{ if(e.target.closest('.timed-event')||e.target.closest('.task-chip')) return; const y=e.clientY-col.getBoundingClientRect().top; const hr=Math.floor(y/48); openCreate(col.dataset.iso, pad(hr)+':00'); }));
+    container.querySelectorAll('.day-column').forEach(col=> col.addEventListener('click', e=>{ if(e.target.closest('.timed-event')||e.target.closest('.task-chip')) return; const y=e.clientY-col.getBoundingClientRect().top; const hr=Math.floor(y/42); openCreate(col.dataset.iso, pad(Math.min(23, Math.max(0, hr)))+':00'); }));
   }
   function renderDay(){
     const bs=state.currentBS, ad=Nep.bsToAd(bs.year,bs.month,bs.day), iso=toISO(ad);
@@ -596,12 +675,12 @@
     const isToday=iso===toISO(new Date());
     let html='<div class="day-layout"><div class="day-header"><div class="time-gutter"></div><div class="day-col-header '+(isToday?'today':'')+'"><div class="dow">'+WEEKDAYS_FULL[ad.getDay()]+' · '+BS_MONTHS_NE[bs.month-1]+' '+bs.day+', '+bs.year+'</div><div class="adNum">'+fmtAD(ad)+'</div></div></div>';
     const allDay=getEventsForAD(iso).filter(e=>e.allDay); const dayTasks=getTasksForAD(iso);
-    html+='<div class="all-day-row day"><div class="all-day-label">all-day</div><div style="padding:4px;display:flex;gap:4px;flex-wrap:wrap">'; allDay.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<span class="event-chip" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</span>`; }); dayTasks.forEach(t=>{ html+=`<span class="task-chip ${t.status==='completed'?'completed':''}" data-task="${esc(t.id)}">✓ ${esc(t.title)}</span>`; }); html+='</div></div>';
-    html+='<div class="time-grid day"><div class="time-labels">'; for(let h=0;h<24;h++) html+=`<div class="time-label">${h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'}</div>`; html+='</div><div class="day-column" data-iso="'+esc(iso)+'">'; for(let h=0;h<24;h++) html+=`<div class="hour-row"></div>`; getEventsForAD(iso).filter(e=>!e.allDay && e.startTime).forEach(ev=>{ const [sh,sm]=ev.startTime.split(':').map(Number); const [eh,em]=ev.endTime?ev.endTime.split(':').map(Number):[sh+1,sm]; const top=sh*48+(sm/60)*48; const h=Math.max(22, ((eh*60+em)-(sh*60+sm))/60*48); const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="timed-event" data-id="${esc(ev.id)}" style="top:${top}px;height:${h}px;background:${esc(col)}"><div>${esc(ev.title)}</div><div class="ev-time">${esc(ev.startTime)} – ${esc(ev.endTime||'')}</div><div style="font-size:11px;opacity:.9">${esc(ev.description||'')}</div></div>`; }); html+='</div></div></div>';
+    html+='<div class="all-day-row day"><div class="all-day-label">all-day</div><div style="padding:4px;display:flex;gap:4px;flex-wrap:wrap">'; allDay.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<span class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</span>`; }); dayTasks.forEach(t=>{ html+=`<span class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}">✓ ${esc(t.title)}</span>`; }); html+='</div></div>';
+    html+='<div class="time-grid day"><div class="time-labels">'; for(let h=0;h<24;h++) html+=`<div class="time-label">${h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'}</div>`; html+='</div><div class="day-column" data-iso="'+esc(iso)+'">'; for(let h=0;h<24;h++) html+=`<div class="hour-row"></div>`; getEventsForAD(iso).filter(e=>!e.allDay && e.startTime).forEach(ev=>{ const [sh,sm]=ev.startTime.split(':').map(Number); const [eh,em]=ev.endTime?ev.endTime.split(':').map(Number):[sh+1,sm]; const top=sh*42+(sm/60)*42; const h=Math.max(22, ((eh*60+em)-(sh*60+sm))/60*42); const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="timed-event" role="button" tabindex="0" data-id="${esc(ev.id)}" style="top:${top}px;height:${h}px;background:${esc(col)}"><div>${esc(ev.title)}</div><div class="ev-time">${esc(ev.startTime)} – ${esc(ev.endTime||'')}</div><div style="font-size:11px;opacity:.9">${esc(ev.description||'')}</div></div>`; }); html+='</div></div></div>';
     container.innerHTML=html;
     container.querySelectorAll('.timed-event,.event-chip').forEach(el=> el.addEventListener('click', ()=> openEdit(el.dataset.id)));
     container.querySelectorAll('.task-chip').forEach(el=> el.addEventListener('click', e=>{ e.stopPropagation(); const id=el.dataset.task; const t=state.google.tasks.find(x=>x.id===id); if(t) taskToggle(t.id, t.status!=='completed'); }));
-    const col=container.querySelector('.day-column'); if(col) col.addEventListener('click', e=>{ if(e.target.closest('.timed-event')||e.target.closest('.task-chip')) return; const hr=Math.floor((e.clientY-col.getBoundingClientRect().top)/48); openCreate(iso, pad(hr)+':00'); });
+    const col=container.querySelector('.day-column'); if(col) col.addEventListener('click', e=>{ if(e.target.closest('.timed-event')||e.target.closest('.task-chip')) return; const hr=Math.floor((e.clientY-col.getBoundingClientRect().top)/42); openCreate(iso, pad(Math.min(23, Math.max(0, hr)))+':00'); });
   }
   function renderSchedule(){
     const container=$('#scheduleView');
@@ -613,8 +692,8 @@
     for(const {d,evs,tasks} of map.values()){
       const b=Nep.adToBs(d);
       html+=`<div class="schedule-group"><div class="schedule-date"><span class="sd-bs">${BS_MONTHS_NE[b.month-1]} ${b.day}, ${b.year}</span><span class="sd-ad">${fmtAD(d)}</span><span class="sd-dow">${WEEKDAYS_FULL[d.getDay()]}</span></div><div class="schedule-events">`;
-      evs.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="schedule-event" data-id="${esc(ev.id)}"><div class="se-time">${ev.allDay?'All day':esc(ev.startTime||'')+' – '+esc(ev.endTime||'')}</div><div class="se-dot" style="background:${esc(col)}"></div><div><div class="se-title">${esc(ev.title)}${ev.source==='google'?' · Google':''}</div><div class="se-desc">${esc(ev.description||'')}</div></div></div>`; });
-      (tasks||[]).forEach(t=>{ html+=`<div class="schedule-task" data-task="${esc(t.id)}"><div class="se-time">Task</div><div class="se-dot" style="background:var(--task)"></div><div><div class="se-title" style="${t.status==='completed'?'text-decoration:line-through;opacity:.6':''}">☐ ${esc(t.title)} · ${esc(t.listTitle||'Tasks')}</div><div class="se-desc">${t.due? 'Due '+esc(t.due):''}</div></div></div>`; });
+      evs.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="schedule-event" role="button" tabindex="0" data-id="${esc(ev.id)}"><div class="se-time">${ev.allDay?'All day':esc(ev.startTime||'')+' – '+esc(ev.endTime||'')}</div><div class="se-dot" style="background:${esc(col)}"></div><div><div class="se-title">${esc(ev.title)}${ev.source==='google'?' · Google':''}</div><div class="se-desc">${esc(ev.description||'')}</div></div></div>`; });
+      (tasks||[]).forEach(t=>{ html+=`<div class="schedule-task" role="button" tabindex="0" data-task="${esc(t.id)}"><div class="se-time">Task</div><div class="se-dot" style="background:var(--task)"></div><div><div class="se-title" style="${t.status==='completed'?'text-decoration:line-through;opacity:.6':''}">☐ ${esc(t.title)} · ${esc(t.listTitle||'Tasks')}</div><div class="se-desc">${t.due? 'Due '+esc(t.due):''}</div></div></div>`; });
       html+=`</div></div>`;
     }
     html+='</div>'; container.innerHTML=html;
@@ -633,9 +712,15 @@
   }
   function navigateBS(delta){
     let y=state.currentBS.year,m=state.currentBS.month,d=state.currentBS.day;
-    if(state.currentView==='day'){ const ad=Nep.bsToAd(y,m,d); ad.setDate(ad.getDate()+delta); state.currentBS=Nep.adToBs(ad); }
-    else if(state.currentView==='week'){ const ad=Nep.bsToAd(y,m,d); ad.setDate(ad.getDate()+delta*7); state.currentBS=Nep.adToBs(ad); }
-    else { m+=delta; while(m>12){m-=12;y++;} while(m<1){m+=12;y--;} if(y<2075) y=2075; if(y>2090) y=2090; const dim=Nep.daysInMonth(y,m); if(d>dim) d=dim; state.currentBS={year:y,month:m,day:d}; }
+    const atMin = y===2075 && m===1 && delta<0;
+    const atMax = y===2090 && m===12 && delta>0;
+    if((atMin || atMax) && state.currentView!=='day' && state.currentView!=='week'){
+      toast(atMin ? 'At earliest BS year 2075' : 'At latest BS year 2090', 2200);
+      return;
+    }
+    if(state.currentView==='day'){ const ad=Nep.bsToAd(y,m,d); ad.setDate(ad.getDate()+delta); let bs=Nep.adToBs(ad); if(bs.year<2075 || bs.year>2090){ toast(bs.year<2075?'At earliest supported date':'At latest supported date',2200); bs.year=Math.min(2090,Math.max(2075,bs.year)); bs.day=Math.min(bs.day, Nep.daysInMonth(bs.year,bs.month)); } state.currentBS=bs; }
+    else if(state.currentView==='week'){ const ad=Nep.bsToAd(y,m,d); ad.setDate(ad.getDate()+delta*7); let bs=Nep.adToBs(ad); if(bs.year<2075 || bs.year>2090){ toast(bs.year<2075?'At earliest supported week':'At latest supported week',2200); bs.year=Math.min(2090,Math.max(2075,bs.year)); } state.currentBS=bs; }
+    else { m+=delta; while(m>12){m-=12;y++;} while(m<1){m+=12;y--;} if(y<2075){ y=2075; toast('At earliest BS year 2075',2200); } if(y>2090){ y=2090; toast('At latest BS year 2090',2200); } const dim=Nep.daysInMonth(y,m); if(d>dim) d=dim; state.currentBS={year:y,month:m,day:d}; }
     renderAll();
     if(isTokenValid()) syncGoogleEvents().then(renderAll);
   }
@@ -651,6 +736,10 @@
     } else {
       const d=new Date(state.datePickerAD || Nep.bsToAd(state.currentBS.year,state.currentBS.month,state.currentBS.day));
       d.setMonth(d.getMonth()+delta, 1);
+      const minAD = BS_REF.ad;
+      const maxAD = toADFallback(2090,12,30);
+      if(d < minAD) d.setTime(minAD.getTime());
+      if(d > maxAD) d.setTime(maxAD.getTime());
       state.datePickerAD=d;
     }
     renderDatePicker();
@@ -723,7 +812,7 @@
     document.querySelectorAll('.now-line').forEach(el=>el.remove());
     const now=new Date(); const iso=toISO(now);
     const minutes = now.getHours()*60 + now.getMinutes();
-    const top = (minutes/1440)* (24*48); // 48px per hour
+    const top = (minutes/1440)* (24*42); // 42px per hour matches CSS
     document.querySelectorAll('.day-column').forEach(col=>{
       if(col.dataset.iso===iso){
         const line=document.createElement('div'); line.className='now-line'; line.style.top=top+'px';
@@ -745,7 +834,7 @@
     const ad=parseISO($('#eventDate').value), bs=Nep.adToBs(ad);
     $('#bsHint').textContent=`BS: ${BS_MONTHS_NE[bs.month-1]} ${bs.day}, ${bs.year} (${WEEKDAYS_NE[ad.getDay()]})`;
     $('#googleSyncWrap').classList.toggle('hidden', !state.google.user);
-    modal.classList.remove('hidden'); $('#eventTitle').focus();
+    modal.classList.remove('hidden'); trapModal(modal.querySelector('.modal')); $('#eventTitle').focus();
   }
   function openEdit(id){
     const ev=[...state.events, ...state.google.events].find(e=>e.id===id); if(!ev) return;
@@ -763,9 +852,9 @@
     $('#timeRow').style.display= ev.allDay? 'none':'flex';
     const ad=parseISO(ev.date), bs=Nep.adToBs(ad);
     $('#bsHint').textContent=`BS: ${BS_MONTHS_NE[bs.month-1]} ${bs.day}, ${bs.year}`;
-    modal.classList.remove('hidden');
+    modal.classList.remove('hidden'); trapModal(modal.querySelector('.modal'));
   }
-  function closeModal(){ modal.classList.add('hidden'); state.editingId=null; }
+  function closeModal(){ releaseModal(modal.querySelector('.modal')); modal.classList.add('hidden'); state.editingId=null; }
 
   function syncViewButtons(view){
     $$('.view-btn').forEach(b=>{ const a=b.dataset.view===view; b.classList.toggle('active',a); b.setAttribute('aria-selected', String(a)); });
@@ -773,12 +862,24 @@
   }
   function init(){
     applyTheme();
+    // Clamp AD inputs to supported BS range 2075-2090
+    try{
+      const minAD = toISO(BS_REF.ad);
+      const maxAD = toISO(toADFallback(2090,12,30));
+      const ed = document.getElementById('eventDate');
+      const td = document.getElementById('taskDueInput');
+      if(ed){ ed.min = minAD; ed.max = maxAD; }
+      if(td){ td.min = minAD; td.max = maxAD; }
+    }catch(e){}
+
     $$('.view-btn').forEach(btn=> btn.addEventListener('click', ()=>{ syncViewButtons(btn.dataset.view); state.currentView=btn.dataset.view; renderAll(); setTimeout(updateNowLine, 100); }));
-    $$('.bottom-nav-btn').forEach(btn=> btn.addEventListener('click', ()=>{ syncViewButtons(btn.dataset.view); state.currentView=btn.dataset.view; renderAll(); setTimeout(updateNowLine, 100); }));
+    $$('.bottom-nav-btn[data-view]').forEach(btn=> btn.addEventListener('click', ()=>{ syncViewButtons(btn.dataset.view); state.currentView=btn.dataset.view; renderAll(); setTimeout(updateNowLine, 100); }));
+    const bToday=document.getElementById('bottomNavToday');
+    if(bToday) bToday.addEventListener('click', ()=>{ state.currentBS=Nep.todayBS(); renderAll(); if(isTokenValid()) syncGoogleEvents().then(renderAll); });
     $('#prevBtn').addEventListener('click', ()=> navigateBS(-1));
     $('#nextBtn').addEventListener('click', ()=> navigateBS(1));
     $('#todayBtnTop').addEventListener('click', ()=>{ state.currentBS=Nep.todayBS(); renderAll(); if(isTokenValid()) syncGoogleEvents().then(renderAll); });
-    $('#currentPeriod').addEventListener('click', ()=>{ syncDatePickerFromCurrent(); renderDatePicker(); $('#datePickerModal').classList.remove('hidden'); });
+    $('#currentPeriod').addEventListener('click', ()=>{ syncDatePickerFromCurrent(); renderDatePicker(); const m=$('#datePickerModal'); m.classList.remove('hidden'); trapModal(m.querySelector('.modal')); });
     const openCreateForToday=()=> openCreate(toISO(Nep.bsToAd(state.currentBS.year,state.currentBS.month,state.currentBS.day)));
     $('#createBtn').addEventListener('click', openCreateForToday);
     $('#createCompact').addEventListener('click', openCreateForToday);
@@ -786,17 +887,30 @@
     if(fab) fab.addEventListener('click', openCreateForToday);
     const mt=$('#menuToggle')||$('#menuToggleNav');
     const backdrop=$('#sidebarBackdrop');
+    const contentEl=$('#content')||$('.calendar-main');
+    function setDrawerA11y(open){
+      if(mt){ mt.setAttribute('aria-expanded', String(open)); mt.setAttribute('aria-controls','sidebar'); }
+      if(contentEl){
+        if(open && window.innerWidth<=768){ contentEl.setAttribute('inert',''); contentEl.setAttribute('aria-hidden','true'); }
+        else { contentEl.removeAttribute('inert'); contentEl.removeAttribute('aria-hidden'); }
+      }
+      if(backdrop) backdrop.setAttribute('aria-hidden', String(!open));
+    }
     function toggleSidebar(){
       const sb=$('#sidebar');
       const open=sb.classList.toggle('open');
       if(backdrop) backdrop.classList.toggle('hidden', !open);
       document.body.style.overflow = open && window.innerWidth<=768 ? 'hidden' : '';
+      setDrawerA11y(open);
     }
-    function closeSidebar(){ const sb=$('#sidebar'); sb.classList.remove('open'); if(backdrop) backdrop.classList.add('hidden'); document.body.style.overflow=''; }
+    function closeSidebar(){ const sb=$('#sidebar'); const wasOpen=sb.classList.contains('open'); sb.classList.remove('open'); if(backdrop) backdrop.classList.add('hidden'); document.body.style.overflow=''; if(wasOpen) setDrawerA11y(false); }
     if(mt) mt.addEventListener('click', toggleSidebar);
     const mtNav=$('#menuToggleNav');
     if(mtNav && mtNav!==mt) mtNav.addEventListener('click', toggleSidebar);
     if(backdrop) backdrop.addEventListener('click', closeSidebar);
+    window.addEventListener('resize', ()=>{ if(window.innerWidth>768) closeSidebar(); });
+    // Ensure initial a11y state
+    setDrawerA11y(false);
     // mobile search
     const mSearchToggle=$('#mobileSearchToggle'), mSearchBar=$('#mobileSearchBar'), mSearchInput=$('#mobileSearchInput'), mSearchClose=$('#mobileSearchClose');
     const mainSearch=$('#searchInput');
@@ -804,12 +918,14 @@
     if(mSearchToggle && mSearchBar){
       mSearchToggle.addEventListener('click', ()=>{ mSearchBar.classList.remove('hidden'); mSearchInput.value=mainSearch.value; setTimeout(()=>mSearchInput.focus(), 50); });
       mSearchClose.addEventListener('click', ()=> mSearchBar.classList.add('hidden'));
-      mSearchInput.addEventListener('input', ()=> syncSearch(mSearchInput, mainSearch));
+      const debouncedSync = debounce(()=>{ syncSearch(mSearchInput, mainSearch); renderAll(); }, 200);
+      mSearchInput.addEventListener('input', ()=>{ syncSearch(mSearchInput, mainSearch); debouncedSync(); });
       mainSearch.addEventListener('input', ()=> syncSearch(mainSearch, mSearchInput));
     }
     $('#modalClose').addEventListener('click', closeModal);
     $('#cancelBtn').addEventListener('click', closeModal);
     modal.addEventListener('click', e=>{ if(e.target===modal) closeModal(); });
+    // Ensure Esc also releases from document level already handled in trapModal
     $('#deleteBtn').addEventListener('click', async ()=>{
       if(!state.editingId) return;
       const isGoogle=state.editingId.startsWith('g_');
@@ -826,15 +942,23 @@
     form.addEventListener('submit', async e=>{
       e.preventDefault();
       const data=new FormData(form);
+      const titleRaw = (data.get('title')||'').trim();
+      const dateRaw = data.get('date');
+      if(!titleRaw){ toast('Title is required', 2500); document.getElementById('eventTitle').focus(); return; }
+      if(!dateRaw){ toast('Date is required', 2500); return; }
+      const startRaw = data.get('startTime')||'';
+      const endRaw = data.get('endTime')||'';
+      const isAllDay = !!data.get('allDay');
+      if(!isAllDay && startRaw && endRaw && endRaw <= startRaw){ toast('End time must be after start time', 3000); return; }
       const payload={
         id: state.editingId || 'e'+Date.now(),
-        title: (data.get('title')||'').trim()||'(No title)',
-        date: data.get('date'),
+        title: titleRaw,
+        date: dateRaw,
         calendarId: data.get('calendar'),
-        startTime: data.get('startTime')||'',
-        endTime: data.get('endTime')||'',
+        startTime: startRaw,
+        endTime: endRaw,
         description: data.get('description')||'',
-        allDay: !!data.get('allDay'),
+        allDay: isAllDay,
         source:'local'
       };
       const wantsGoogle=$('#googleSyncCheck').checked && isTokenValid() && state.calendars[payload.calendarId]?.source==='google';
@@ -861,12 +985,12 @@
       }
       closeModal(); renderAll();
     });
-    // search
-    $('#searchInput').addEventListener('input', e=>{ state.searchQuery=e.target.value.trim(); renderAll(); });
+    const debouncedSearch = debounce(()=>{ renderAll(); }, 200);
+    $('#searchInput').addEventListener('input', e=>{ state.searchQuery=e.target.value.trim(); debouncedSearch(); });
     // settings
-    $('#settingsBtn').addEventListener('click', ()=> $('#settingsModal').classList.remove('hidden'));
-    $('#settingsClose').addEventListener('click', ()=> $('#settingsModal').classList.add('hidden'));
-    $('#settingsModal').addEventListener('click', e=>{ if(e.target===$('#settingsModal')) $('#settingsModal').classList.add('hidden'); });
+    $('#settingsBtn').addEventListener('click', ()=> { const m=$('#settingsModal'); m.classList.remove('hidden'); trapModal(m.querySelector('.modal')); });
+    $('#settingsClose').addEventListener('click', ()=> { const m=$('#settingsModal'); releaseModal(m.querySelector('.modal')); m.classList.add('hidden'); });
+    $('#settingsModal').addEventListener('click', e=>{ if(e.target===$('#settingsModal')){ const m=$('#settingsModal'); releaseModal(m.querySelector('.modal')); m.classList.add('hidden'); } });
     $('#showAdToggle').addEventListener('change', e=>{ state.showAD=e.target.checked; saveLocal(); renderAll(); });
     const tasksToggle=$('#showTasksToggle');
     if(tasksToggle){ tasksToggle.checked=state.showTasksOnCalendar; tasksToggle.addEventListener('change', e=>{ state.showTasksOnCalendar=e.target.checked; saveLocal(); renderAll(); toast(state.showTasksOnCalendar?'Tasks shown on dates':'Tasks hidden from dates',1800); }); }
@@ -913,8 +1037,8 @@
       if(!state.datePickerBS || !state.datePickerAD) syncDatePickerFromCurrent();
       renderDatePicker();
     }));
-    $('#datePickerClose').addEventListener('click', ()=> $('#datePickerModal').classList.add('hidden'));
-    $('#datePickerModal').addEventListener('click', e=>{ if(e.target===$('#datePickerModal')) $('#datePickerModal').classList.add('hidden'); });
+    $('#datePickerClose').addEventListener('click', ()=> { const m=$('#datePickerModal'); releaseModal(m.querySelector('.modal')); m.classList.add('hidden'); });
+    $('#datePickerModal').addEventListener('click', e=>{ if(e.target===$('#datePickerModal')){ const m=$('#datePickerModal'); releaseModal(m.querySelector('.modal')); m.classList.add('hidden'); } });
     document.addEventListener('click', e=>{
       const sb=$('#sidebar');
       if(window.innerWidth<=768 && sb.classList.contains('open') && !sb.contains(e.target) && e.target!==$('#menuToggle') && !$('#menuToggle').contains(e.target)) sb.classList.remove('open');

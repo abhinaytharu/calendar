@@ -48,21 +48,14 @@
       }while(pageToken);
       return out;
     },
-    // events in range with pagination + incremental syncToken like OGCS GetCalendarEntriesInRange
+    // events in range — always full fetch with timeMin/max (correctness over incremental)
+    // Previously used syncToken which ignored range and caused missing events when navigating BS months
     async fetchEventsForCalendars(calendars, token, range){
       const all=[];
       for(const cal of calendars.slice(0,8)){
-        const syncKey = 'np_g_synctoken_'+btoa(cal.id).replace(/=/g,'');
-        const storedToken = localStorage.getItem(syncKey);
-        let url;
-        let useSyncToken = !!storedToken && !range.forceFull;
-        if(useSyncToken){
-          url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime&maxResults=250&syncToken=${encodeURIComponent(storedToken)}`;
-        } else {
-          const timeMin = range.from.toISOString();
-          const timeMax = range.to.toISOString();
-          url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime&maxResults=250&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&showDeleted=false`;
-        }
+        const timeMin = range.from.toISOString();
+        const timeMax = range.to.toISOString();
+        let url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime&maxResults=250&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&showDeleted=false`;
         try{
           let pageToken='';
           do{
@@ -93,19 +86,9 @@
               });
             });
             pageToken = data.nextPageToken || '';
-            if(data.nextSyncToken) localStorage.setItem(syncKey, data.nextSyncToken);
           }while(pageToken);
         }catch(e){
-          // 410 Gone → syncToken expired, retry full
-          if(String(e.message).includes('410') || String(e.message).includes('syncToken')){
-            localStorage.removeItem(syncKey);
-            if(useSyncToken){
-              range.forceFull=true;
-              return this.fetchEventsForCalendars(calendars, token, range);
-            }
-          } else {
             console.warn('[OGCS] events fetch failed for', cal.id, e);
-          }
         }
       }
       return all;

@@ -1044,8 +1044,10 @@
       if(backdrop) backdrop.classList.toggle('hidden', !open);
       document.body.style.overflow = open && window.innerWidth<=768 ? 'hidden' : '';
       setDrawerA11y(open);
+      const btn=$('#menuToggle');
+      if(btn) btn.classList.toggle('open', open);
     }
-    function closeSidebar(){ const sb=$('#sidebar'); const wasOpen=sb.classList.contains('open'); sb.classList.remove('open'); if(backdrop) backdrop.classList.add('hidden'); document.body.style.overflow=''; if(wasOpen) setDrawerA11y(false); }
+    function closeSidebar(){ const sb=$('#sidebar'); const wasOpen=sb.classList.contains('open'); sb.classList.remove('open'); if(backdrop) backdrop.classList.add('hidden'); document.body.style.overflow=''; if(wasOpen) setDrawerA11y(false); const btn=$('#menuToggle'); if(btn) btn.classList.remove('open'); }
     if(mt) mt.addEventListener('click', toggleSidebar);
     const mtNav=$('#menuToggleNav');
     if(mtNav && mtNav!==mt) mtNav.addEventListener('click', toggleSidebar);

@@ -471,13 +471,11 @@
   }
   async function syncGoogleAll(){
     if(!isTokenValid()) return;
-    $('#syncBadge').classList.remove('hidden');
-    $('#syncBadge').textContent='● Syncing…';
+    const _sb=document.getElementById('syncBadge'); if(_sb){ _sb.classList.remove('hidden'); _sb.textContent='● Syncing…'; }
     try{ await syncGoogleCalendars(); }catch(e){ console.warn(e); }
     try{ await syncGoogleEvents(); }catch(e){ console.warn(e); }
     try{ await syncGoogleTasks(); }catch(e){ console.warn(e); toast('Tasks sync failed: '+(e.message||e), 3000); }
-    $('#syncBadge').textContent='● Synced: '+state.google.events.length+' events, '+state.google.tasks.length+' tasks';
-    setTimeout(()=>$('#syncBadge').classList.add('hidden'), 4000);
+    const _sb2=document.getElementById('syncBadge'); if(_sb2){ _sb2.textContent='● Synced: '+state.google.events.length+' events, '+state.google.tasks.length+' tasks'; setTimeout(()=>_sb2.classList.add('hidden'), 4000); } toast('Synced: '+state.google.events.length+' events, '+state.google.tasks.length+' tasks', 3000);
     renderAll();
     console.log('[Sync] calendars', state.google.calendars.length, 'events', state.google.events.length, 'tasks', state.google.tasks.length);
   }
@@ -923,7 +921,7 @@
     const hasUser=!!state.google.user;
     $('#authArea').classList.toggle('hidden', hasUser);
     $('#userMenu').classList.toggle('hidden', !hasUser);
-    $('#syncBadge').classList.toggle('hidden', !hasUser);
+    const _sb3=document.getElementById('syncBadge'); if(_sb3) _sb3.classList.toggle('hidden', !hasUser);
     if(hasUser){
       $('#userName').textContent=state.google.user.name||'';
       $('#userEmail').textContent=state.google.user.email||'';

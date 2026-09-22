@@ -512,6 +512,8 @@ input, select, textarea { font: inherit; }
 .event-date { max-width: 160px; }
 .event-calendar { max-width: 160px; }
 .event-dot { border: 1px solid rgba(0,0,0,0.1); }
+#googleSyncWrap { gap: 12px !important; padding: 6px 0; }
+#googleSyncWrap input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); }
 .modern-actions { padding: 12px 24px; background: var(--bg); justify-content: flex-end; gap: 8px; }
 @media (max-width: 520px) {
   .event-modal { border-radius: 16px 16px 0 0; }

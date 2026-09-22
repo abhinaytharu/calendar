@@ -321,6 +321,52 @@ input, select, textarea { font: inherit; }
   .event-chip, .task-chip { min-height: 26px; }
 }
 
+/* === Breathable 16:9 (landscape widescreen) === */
+@media (min-aspect-ratio: 16/9) and (min-width: 1024px) {
+  :root { --sidebar-w: 280px; --topbar-h: 68px; }
+  body { line-height: 1.6; letter-spacing: 0.01em; }
+  .topbar { padding: 0 20px; gap: 20px; }
+  .topbar-center { gap: 18px; }
+  .search-wrap { min-width: 320px; height: 42px; }
+  .nepal-clock { padding: 6px 14px; gap: 8px; font-size: 13px; }
+  .main-container { gap: 8px; padding: 8px; background: var(--bg); }
+  .sidebar { padding: 16px; gap: 20px; border-radius: 12px; margin: 4px; border: 1px solid var(--border-light); }
+  .calendar-main { border-radius: 12px; border: 1px solid var(--border-light); overflow: hidden; }
+  .month-grid { gap: 2px; }
+  .month-cell { min-height: 128px; padding: 8px 10px; gap: 6px; }
+  .month-header { padding: 10px 8px; font-size: 12px; letter-spacing: 0.05em; }
+  .bs-day { width: 28px; height: 28px; font-size: 14px; }
+  .event-chip, .task-chip { padding: 4px 8px; font-size: 12px; min-height: 24px; }
+  .mini-calendar { padding: 12px; }
+  .calendar-list .cal-item { padding: 8px 10px; }
+  #content { padding: 4px; }
+}
+
+/* === Breathable 9:16 (portrait tall) === */
+@media (max-aspect-ratio: 9/16) {
+  :root { --topbar-h: 60px; }
+  body { line-height: 1.7; }
+  .topbar { padding: 0 12px; gap: 12px; }
+  .app-title { font-size: 18px; }
+  .current-period-btn { font-size: 15px; padding: 8px 12px; line-height: 1.4; }
+  .main-container { gap: 12px; padding: 8px; }
+  .sidebar { gap: 20px; padding: 16px; }
+  .sidebar-section { gap: 12px; }
+  .section-header h3 { font-size: 13px; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .mini-calendar { padding: 12px; }
+  .mini-day { font-size: 13px; padding: 7px 2px; }
+  .month-grid { gap: 2px; }
+  .month-cell { min-height: 100px; padding: 8px 6px; gap: 4px; }
+  .month-header { padding: 10px 6px; font-size: 12px; }
+  .bs-day { width: 30px; height: 30px; font-size: 15px; }
+  .event-chip, .task-chip { padding: 5px 8px; font-size: 12px; min-height: 28px; margin-bottom: 2px; }
+  .task-item { padding: 12px; gap: 10px; }
+  .bottom-nav { padding: 8px 0 max(8px, env(safe-area-inset-bottom)); }
+  .bottom-nav-btn { padding: 8px 0; gap: 4px; min-height: 52px; }
+  .modal { padding-bottom: env(safe-area-inset-bottom); }
+  .nepal-clock { padding: 6px 12px; font-size: 13px; gap: 8px; }
+}
+
 @keyframes pulse { 0%{opacity:.6} 50%{opacity:1} 100%{opacity:.6} }
 
 [data-theme="dark"] { --cal-personal: #8ab4f8; --cal-work: #81c995; --cal-family: #f28b82; --cal-holiday: #fbbc04; }

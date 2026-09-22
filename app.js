@@ -725,7 +725,7 @@
     const todayBS=Nep.todayBS();
     const container=$('#monthView');
     let html='<div class="month-grid">';
-    WEEKDAYS_EN.forEach((w,i)=> html+=`<div class="month-header" style="${i===6?'color:var(--danger)':''}">${w} <span style="font-weight:400;opacity:.7">${WEEKDAYS_NE[i]}</span></div>`);
+    WEEKDAYS_EN.forEach((w,i)=> html+=`<div class="month-header" style="${i===0||i===6?'color:var(--danger)':''}">${w} <span style="font-weight:400;opacity:.7">${WEEKDAYS_NE[i]}</span></div>`);
     for(let i=0;i<42;i++){
       const off=i-firstDow+1;
       let bsY=y,bsM=m,bsD=off; let other=false;
@@ -739,7 +739,7 @@
       const dow=ad.getDay();
       const dispD = bsForDisplay({year:bsY, month:bsM, day:bsD}).day;
       html+=`<div class="month-cell ${other?'other':''} ${isToday?'today':''} ${isSel?'selected':''}" data-iso="${iso}" data-bs="${bsY}-${bsM}-${bsD}">`;
-      html+=`<div class="day-head"><span class="bs-day ${dow===6?'saturday':''}">${dispD}</span>${state.showAD?`<span class="ad-day">${ad.getDate()}</span>`:''}</div>`;
+      html+=`<div class="day-head"><span class="bs-day ${dow===0?'sunday':dow===6?'saturday':''}">${dispD}</span>${state.showAD?`<span class="ad-day">${ad.getDate()}</span>`:''}</div>`;
       const combined = [...evs.map(e=>({kind:'event', data:e})), ...tasks.map(t=>({kind:'task', data:t}))].slice(0,3);
       const remaining = evs.length + tasks.length - combined.length;
       if(combined.length){
@@ -889,7 +889,7 @@
       const today=Nep.todayBS();
       html+=`<div class="date-picker-toolbar"><button type="button" id="datePickPrev" aria-label="Previous month">‹</button><div><strong>${BS_MONTHS_NE[m-1]} ${y}</strong><span>${firstAD.toLocaleDateString('en-US',{month:'long',year:'numeric'})} AD</span></div><button type="button" id="datePickNext" aria-label="Next month">›</button></div>`;
       html+='<div class="date-picker-days">';
-      WEEKDAYS_EN.forEach((w,i)=> html+=`<div class="date-picker-weekday ${i===6?'saturday':''}">${w}</div>`);
+      WEEKDAYS_EN.forEach((w,i)=> html+=`<div class="date-picker-weekday ${i===0||i===6?'sunday saturday':''}">${w}</div>`);
       for(let i=0;i<firstDow;i++) html+='<div></div>';
       for(let d=1; d<=dim; d++){
         const ad=Nep.bsToAd(y,m,d), iso=toISO(ad);
@@ -906,7 +906,7 @@
       const todayISO=toISO(new Date()), selectedISO=toISO(Nep.bsToAd(state.currentBS.year,state.currentBS.month,state.currentBS.day));
       html+=`<div class="date-picker-toolbar"><button type="button" id="datePickPrev" aria-label="Previous month">‹</button><div><strong>${first.toLocaleDateString('en-US',{month:'long',year:'numeric'})}</strong><span>Gregorian calendar</span></div><button type="button" id="datePickNext" aria-label="Next month">›</button></div>`;
       html+='<div class="date-picker-days">';
-      WEEKDAYS_EN.forEach((w,i)=> html+=`<div class="date-picker-weekday ${i===6?'saturday':''}">${w}</div>`);
+      WEEKDAYS_EN.forEach((w,i)=> html+=`<div class="date-picker-weekday ${i===0||i===6?'sunday saturday':''}">${w}</div>`);
       for(let i=0;i<firstDow;i++) html+='<div></div>';
       for(let d=1; d<=dim; d++){
         const ad=new Date(y,m,d), iso=toISO(ad), bs=bsForDisplay(Nep.adToBs(ad));

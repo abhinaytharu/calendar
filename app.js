@@ -593,9 +593,18 @@
     return merged;
   }
   function isRecurringOnDate(ev, iso){
-    if(!ev.recurrence || ev.recurrence==='none') return false;
+    let rec = ev.recurrence;
+    // Handle Google RRULE array like ["RRULE:FREQ=DAILY"] vs local string "daily"
+    if(Array.isArray(rec)){
+      const r = rec.join(' ');
+      if(r.includes('FREQ=DAILY')) rec = 'daily';
+      else if(r.includes('FREQ=WEEKLY')) rec = 'weekly';
+      else if(r.includes('FREQ=MONTHLY')) rec = 'monthly';
+      else if(r.includes('FREQ=YEARLY')) rec = 'yearly';
+      else return false;
+    }
+    if(!rec || rec==='none') return false;
     if(ev.date === iso) return true;
-    // Use Nepal dates for comparison to avoid timezone off-by-one
     try{
       const startStr = ev.date;
       const targetStr = iso;
@@ -606,10 +615,10 @@
       if(tDate < sDate) return false;
       const diffDays = Math.floor((tDate - sDate)/86400000);
       if(diffDays > 730) return false;
-      if(ev.recurrence==='daily') return true;
-      if(ev.recurrence==='weekly') return diffDays % 7 === 0;
-      if(ev.recurrence==='monthly') return tParts[2] === sParts[2];
-      if(ev.recurrence==='yearly') return tParts[2]===sParts[2] && tParts[1]===sParts[1];
+      if(rec==='daily') return true;
+      if(rec==='weekly') return diffDays % 7 === 0;
+      if(rec==='monthly') return tParts[2] === sParts[2];
+      if(rec==='yearly') return tParts[2]===sParts[2] && tParts[1]===sParts[1];
       return false;
     }catch(e){
       const start = parseISO(ev.date);
@@ -617,10 +626,10 @@
       if(target < start) return false;
       const diffDays = Math.floor((target - start)/86400000);
       if(diffDays > 730) return false;
-      if(ev.recurrence==='daily') return true;
-      if(ev.recurrence==='weekly') return diffDays % 7 === 0;
-      if(ev.recurrence==='monthly') return target.getDate() === start.getDate();
-      if(ev.recurrence==='yearly') return target.getDate()===start.getDate() && target.getMonth()===start.getMonth();
+      if(rec==='daily') return true;
+      if(rec==='weekly') return diffDays % 7 === 0;
+      if(rec==='monthly') return target.getDate() === start.getDate();
+      if(rec==='yearly') return target.getDate()===start.getDate() && target.getMonth()===start.getMonth();
       return false;
     }
   }

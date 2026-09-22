@@ -79,7 +79,7 @@
                 startTime: allDay? '' : String(sHM[0]).padStart(2,'0')+':'+String(sHM[1]).padStart(2,'0'),
                 endTime: allDay||!end? '' : String(eHM[0]).padStart(2,'0')+':'+String(eHM[1]).padStart(2,'0'),
                 allDay, calendarId:'g_'+cal.id, description:ev.description||'', source:'google',
-                htmlLink:ev.htmlLink, color:cal.backgroundColor, colorId:ev.colorId, transparency:ev.transparency, visibility:ev.visibility
+                htmlLink:ev.htmlLink, color:cal.backgroundColor, colorId:ev.colorId, transparency:ev.transparency, visibility:ev.visibility, recurrence: ev.recurrence || null
               });
             });
             pageToken = data.nextPageToken || '';

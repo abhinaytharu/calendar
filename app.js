@@ -120,12 +120,16 @@
       return new Date(now.toLocaleString('en-US', {timeZone: NEPAL_TZ}));
     }catch(e){ return new Date(); }
   }
+  function getDisplayTZ(){ return state.timezone || 'Asia/Kathmandu'; }
   function updateNepalClock(){
     try{
       const now = new Date();
-      const timeStr = now.toLocaleTimeString('en-US', {timeZone: NEPAL_TZ, hour:'2-digit', minute:'2-digit', hour12:true});
-      const dateStr = now.toLocaleDateString('en-US', {timeZone: NEPAL_TZ, month:'short', day:'numeric', year:'numeric'});
-      const fullStr = now.toLocaleString('en-US', {timeZone: NEPAL_TZ, weekday:'short', month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}) + ' NPT';
+      const tz = getDisplayTZ();
+      const isNepal = tz === 'Asia/Kathmandu';
+      const timeStr = now.toLocaleTimeString('en-US', {timeZone: tz, hour:'2-digit', minute:'2-digit', hour12:true});
+      const dateStr = now.toLocaleDateString('en-US', {timeZone: tz, month:'short', day:'numeric', year:'numeric'});
+      const fullStr = now.toLocaleString('en-US', {timeZone: tz, weekday:'short', month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}) + ' ' + (isNepal ? 'NPT' : tz.split('/').pop());
+      // Topbar clock removed — only settings shows time; keep for backward compat if elements exist
       const timeEl = document.getElementById('nepalTime');
       const dateEl = document.getElementById('nepalDate');
       if(timeEl) timeEl.textContent = timeStr;
@@ -190,6 +194,7 @@
     showAD: safeJSON('np_showAD', true),
     showTasksOnCalendar: safeJSON('np_showTasks', true),
     theme: localStorage.getItem('np_theme')||'auto',
+    timezone: localStorage.getItem('np_timezone')||'Asia/Kathmandu',
     events: safeJSON('np_events', []),
     calendars: safeJSON('np_cals', null) || {
       personal:{label:'Personal', color:'#039be5', visible:true, source:'local'},
@@ -1131,6 +1136,16 @@
     if(tasksToggle){ tasksToggle.checked=state.showTasksOnCalendar; tasksToggle.addEventListener('change', e=>{ state.showTasksOnCalendar=e.target.checked; saveLocal(); renderAll(); toast(state.showTasksOnCalendar?'Tasks shown on dates':'Tasks hidden from dates',1800); }); }
     const themeSelect=$('#themeSelect');
     if(themeSelect){ themeSelect.value=state.theme; themeSelect.addEventListener('change', e=>{ state.theme=e.target.value; localStorage.setItem('np_theme', state.theme); applyTheme(); }); }
+    const tzSelect=$('#timezoneSelect');
+    if(tzSelect){
+      tzSelect.value=state.timezone;
+      tzSelect.addEventListener('change', e=>{
+        state.timezone=e.target.value;
+        localStorage.setItem('np_timezone', state.timezone);
+        updateNepalClock();
+        toast('Timezone: '+state.timezone, 2000);
+      });
+    }
     const tBtn=$('#themeToggle');
     if(tBtn) tBtn.addEventListener('click', cycleTheme);
     $('#exportBtn').addEventListener('click', ()=>{

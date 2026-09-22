@@ -15,14 +15,40 @@
     2087:[31,31,32,31,31,31,30,29,30,29,30,30], 2088:[31,31,32,32,31,30,30,29,30,29,30,30],
     2089:[31,32,31,32,31,30,30,30,29,29,30,31], 2090:[31,31,31,32,31,31,29,30,30,29,29,31],
   };
-  const BS_REF = { y:2075, m:1, d:1, ad: new Date(2018,3,14) };
+  // Nepal timezone: UTC+5:45 — all BS conversions must use Asia/Kathmandu, not browser local
+  const NEPAL_TZ = 'Asia/Kathmandu';
+  const NEPAL_OFFSET_MS = 345*60*1000;
+  // BS 2075-01-01 = 2018-04-14 00:00 Nepal = 2018-04-13 18:15 UTC
+  const BS_REF = { y:2075, m:1, d:1, ad: new Date(Date.UTC(2018,3,13,18,15,0)) };
   function daysInBS(y,m){ return (BS_DATA[y]||BS_DATA[2082])[m-1] || 30; }
-  function toADFallback(bsY,bsM,bsD){ let days=0; for(let y=BS_REF.y;y<bsY;y++) for(let mm=1;mm<=12;mm++) days+=daysInBS(y,mm); for(let mm=1;mm<bsM;mm++) days+=daysInBS(bsY,mm); days+=bsD-1; const d=new Date(BS_REF.ad); d.setDate(d.getDate()+days); return d; }
+  function toADFallback(bsY,bsM,bsD){
+    let days=0;
+    for(let y=BS_REF.y;y<bsY;y++) for(let mm=1;mm<=12;mm++) days+=daysInBS(y,mm);
+    for(let mm=1;mm<bsM;mm++) days+=daysInBS(bsY,mm);
+    days+=bsD-1;
+    return new Date(BS_REF.ad.getTime() + days*86400000);
+  }
   function toBSFallback(adDate){
+    // Normalize adDate to Nepal midnight UTC for day-level comparison
+    const adMidnightUTC = new Date(Date.UTC(adDate.getFullYear(), adDate.getMonth(), adDate.getDate()));
+    // Convert to Nepal day by offset
+    const adNepalTime = new Date(adMidnightUTC.getTime() + (adMidnightUTC.getTimezoneOffset()*60000) + NEPAL_OFFSET_MS);
+    // Use UTC-based diff with BS_REF (which is already Nepal midnight UTC)
     const maxAD = toADFallback(2090,12,30);
     if(adDate < BS_REF.ad) return {year:2075, month:1, day:1};
     if(adDate > maxAD) return {year:2090, month:12, day:30};
-    let days=Math.floor((adDate - BS_REF.ad)/86400000); let y=BS_REF.y,m=1;
+    let days=Math.floor((adDate.getTime() - BS_REF.ad.getTime())/86400000);
+    // Adjust for Nepal offset: if adDate is not at Nepal midnight, floor may be off by 1 - use nepal date
+    // Use Intl to get correct Nepal date for edge cases
+    try{
+      const nepalStr = adDate.toLocaleDateString('en-CA', {timeZone: NEPAL_TZ});
+      const [y,m,d] = nepalStr.split('-').map(Number);
+      const testAd = toADFallback(2075,1,1);
+      // Recalculate days using Nepal date string to avoid DST issues
+      const nepalDays = Math.floor((new Date(nepalStr+'T00:00:00+05:45').getTime() - BS_REF.ad.getTime())/86400000);
+      if(Math.abs(nepalDays - days) <= 1) days = nepalDays;
+    }catch(e){}
+    let y=BS_REF.y,m=1;
     while(true){ const dim=daysInBS(y,m); if(days<dim) break; days-=dim; m++; if(m>12){m=1;y++;} if(y>2090) return {year:2090, month:12, day:30}; }
     return {year:y, month:m, day:days+1};
   }
@@ -30,16 +56,73 @@
   const Nep = {
     lib: detectLib(),
     bsToAd(bsY,bsM,bsD){ try{ if(this.lib){ if(this.lib.convertBSToAD){ const r=this.lib.convertBSToAD({year:bsY,month:bsM,day:bsD}); if(r instanceof Date) return r; if(r&&r.year) return new Date(r.year,r.month-1,r.day);} if(this.lib.bsToAd){ const r=this.lib.bsToAd(bsY,bsM,bsD); if(Array.isArray(r)) return new Date(r[0],r[1]-1,r[2]); if(r instanceof Date) return r;} if(this.lib.BSToAD){ const r=this.lib.BSToAD(bsY,bsM,bsD); if(r instanceof Date) return r;} } }catch(e){} return toADFallback(bsY,bsM,bsD); },
-    adToBs(ad){ try{ if(this.lib){ if(this.lib.convertADToBS){ const r=this.lib.convertADToBS(ad); if(r&&r.year) return r;} if(this.lib.adToBs){ const r=this.lib.adToBs(ad.getFullYear(),ad.getMonth()+1,ad.getDate()); if(Array.isArray(r)) return {year:r[0],month:r[1],day:r[2]}; } if(this.lib.ADToBS){ const r=this.lib.ADToBS(ad); if(r&&r.year) return r;} } }catch(e){} return toBSFallback(ad); },
+    adToBs(ad){ try{
+        // Use Nepal timezone date parts for library that expects local AD
+        const nepalStr = ad.toLocaleDateString('en-CA', {timeZone: NEPAL_TZ});
+        const [y,m,d] = nepalStr.split('-').map(Number);
+        const nepalAD = new Date(y,m-1,d);
+        if(this.lib){
+          if(this.lib.convertADToBS){ const r=this.lib.convertADToBS(nepalAD); if(r&&r.year) return r; }
+          if(this.lib.adToBs){ const r=this.lib.adToBs(y,m,d); if(Array.isArray(r)) return {year:r[0],month:r[1],day:r[2]}; }
+          if(this.lib.ADToBS){ const r=this.lib.ADToBS(nepalAD); if(r&&r.year) return r;}
+        }
+      }catch(e){}
+      return toBSFallback(ad);
+    },
     daysInMonth(y,m){ try{ if(this.lib && this.lib.getDaysInMonth) return this.lib.getDaysInMonth(y,m); if(this.lib && this.lib.daysInMonth) return this.lib.daysInMonth(y,m);}catch(e){} return daysInBS(y,m); },
-    todayBS(){ return this.adToBs(new Date()); }
+    todayBS(){
+      // Always use Nepal timezone, not browser local
+      const now = new Date();
+      const nepalStr = now.toLocaleDateString('en-CA', {timeZone: NEPAL_TZ});
+      const [y,m,d] = nepalStr.split('-').map(Number);
+      return this.adToBs(new Date(y,m-1,d));
+    }
   };
   const CONFIG = window.APP_CONFIG || { GOOGLE_CLIENT_ID:'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com', GOOGLE_SCOPES:'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile' };
   const $=s=>document.querySelector(s), $$=s=>document.querySelectorAll(s);
   const pad=n=>String(n).padStart(2,'0');
-  const toISO=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-  const parseISO=s=>{ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
-  const fmtAD=d=>d.toLocaleDateString('en-US',{month:'short', day:'numeric', year:'numeric'});
+  // All date-only operations use Nepal timezone (Asia/Kathmandu) to avoid one-day shift
+  function toISO(d){
+    // Return YYYY-MM-DD in Nepal timezone
+    try{ return d.toLocaleDateString('en-CA', {timeZone: NEPAL_TZ}); }
+    catch(e){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+  }
+  function parseISO(s){
+    const [y,m,d]=s.split('-').map(Number);
+    // Parse as Nepal midnight (00:00 +05:45) -> UTC 18:15 previous day
+    return new Date(Date.UTC(y,m-1,d) - NEPAL_OFFSET_MS);
+    // For date-only comparison, use local Date at 00:00 and treat as Nepal
+    // Fallback: return new Date(y,m-1,d) if Intl not needed
+  }
+  function parseISO_local(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+  function fmtAD(d){
+    try{ return d.toLocaleDateString('en-US',{timeZone: NEPAL_TZ, month:'short', day:'numeric', year:'numeric'}); }
+    catch(e){ return d.toLocaleDateString('en-US',{month:'short', day:'numeric', year:'numeric'}); }
+  }
+  function fmtTimeNepal(d){
+    try{ return d.toLocaleTimeString('en-US',{timeZone: NEPAL_TZ, hour:'2-digit', minute:'2-digit', hour12:true}); }
+    catch(e){ return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
+  }
+  function getNepalNow(){
+    try{
+      const now = new Date();
+      return new Date(now.toLocaleString('en-US', {timeZone: NEPAL_TZ}));
+    }catch(e){ return new Date(); }
+  }
+  function updateNepalClock(){
+    try{
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-US', {timeZone: NEPAL_TZ, hour:'2-digit', minute:'2-digit', hour12:true});
+      const dateStr = now.toLocaleDateString('en-US', {timeZone: NEPAL_TZ, month:'short', day:'numeric', year:'numeric'});
+      const fullStr = now.toLocaleString('en-US', {timeZone: NEPAL_TZ, weekday:'short', month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:true}) + ' NPT';
+      const timeEl = document.getElementById('nepalTime');
+      const dateEl = document.getElementById('nepalDate');
+      if(timeEl) timeEl.textContent = timeStr;
+      if(dateEl) dateEl.textContent = dateStr;
+      const setEl = document.getElementById('settingsNepalTime');
+      if(setEl) setEl.textContent = fullStr;
+    }catch(e){}
+  }
   function toast(msg, ms=2200){ const el=$('#toast'); el.textContent=msg; el.classList.remove('hidden'); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.add('hidden'), ms); }
   // XSS-safe escaping for any Google/user-controlled text inserted via innerHTML
   function esc(s){ return String(s ?? '').replace(/[&<>"']/g, m=> ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
@@ -387,13 +470,19 @@
       const token=await ensureToken();
       const calId = payload.googleCalendarId || (state.google.calendars.find(c=>c.primary)?.id) || state.google.calendars[0]?.id;
       if(!calId) throw new Error('No Google calendar');
+      // OGCS expects payload with Nepal time, ensure timeZone handling
       return OGCS.createEvent(calId, payload, token);
     }
     const calId = payload.googleCalendarId || (state.google.calendars.find(c=>c.primary)?.id) || state.google.calendars[0]?.id;
     if(!calId) throw new Error('No Google calendar');
     const body={ summary: payload.title, description: payload.description||'' };
     if(payload.allDay){ body.start={date:payload.date}; body.end={date: toISO(new Date(parseISO(payload.date).getTime()+86400000))}; }
-    else { const s=new Date(payload.date+'T'+(payload.startTime||'09:00')+':00'); const e=new Date(payload.date+'T'+(payload.endTime||'10:00')+':00'); body.start={dateTime:s.toISOString()}; body.end={dateTime:e.toISOString()}; }
+    else {
+      // Create as Nepal time (Asia/Kathmandu) with explicit offset
+      const s=new Date(payload.date+'T'+(payload.startTime||'09:00')+':00+05:45');
+      const e=new Date(payload.date+'T'+(payload.endTime||'10:00')+':00+05:45');
+      body.start={dateTime:s.toISOString(), timeZone: NEPAL_TZ}; body.end={dateTime:e.toISOString(), timeZone: NEPAL_TZ};
+    }
     const data=await gFetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`, { method:'POST', body: JSON.stringify(body)});
     return data;
   }
@@ -405,7 +494,11 @@
     const calId=ev.googleCalendarId; const gid=ev.googleId;
     const body={ summary:ev.title, description:ev.description||'' };
     if(ev.allDay){ body.start={date:ev.date}; body.end={date: toISO(new Date(parseISO(ev.date).getTime()+86400000))}; }
-    else { const s=new Date(ev.date+'T'+(ev.startTime||'09:00')+':00'); const e=new Date(ev.date+'T'+(ev.endTime||'10:00')+':00'); body.start={dateTime:s.toISOString()}; body.end={dateTime:e.toISOString()}; }
+    else {
+      const s=new Date(ev.date+'T'+(ev.startTime||'09:00')+':00+05:45');
+      const e=new Date(ev.date+'T'+(ev.endTime||'10:00')+':00+05:45');
+      body.start={dateTime:s.toISOString(), timeZone: NEPAL_TZ}; body.end={dateTime:e.toISOString(), timeZone: NEPAL_TZ};
+    }
     await gFetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(gid)}`, { method:'PUT', body: JSON.stringify(body)});
   }
   async function googleDeleteEvent(ev){
@@ -817,8 +910,19 @@
   }
   function updateNowLine(){
     document.querySelectorAll('.now-line').forEach(el=>el.remove());
-    const now=new Date(); const iso=toISO(now);
-    const minutes = now.getHours()*60 + now.getMinutes();
+    // Use Nepal time for now-line
+    let nowHours, nowMinutes, iso;
+    try{
+      const now = new Date();
+      const nepalStr = now.toLocaleDateString('en-CA', {timeZone: NEPAL_TZ});
+      iso = nepalStr;
+      const timeParts = now.toLocaleTimeString('en-GB', {timeZone: NEPAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false}).split(':');
+      nowHours = parseInt(timeParts[0],10);
+      nowMinutes = parseInt(timeParts[1],10);
+    }catch(e){
+      const now=new Date(); iso=toISO(now); nowHours=now.getHours(); nowMinutes=now.getMinutes();
+    }
+    const minutes = nowHours*60 + nowMinutes;
     const top = (minutes/1440)* (24*42); // 42px per hour matches CSS
     document.querySelectorAll('.day-column').forEach(col=>{
       if(col.dataset.iso===iso){
@@ -869,6 +973,9 @@
   }
   function init(){
     applyTheme();
+    updateNepalClock();
+    setInterval(updateNepalClock, 1000);
+    setInterval(updateNowLine, 60000);
     // Clamp AD inputs to supported BS range 2075-2090
     try{
       const minAD = toISO(BS_REF.ad);

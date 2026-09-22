@@ -58,6 +58,9 @@ input, select, textarea { font: inherit; }
 .search-wrap:focus-within { background: var(--surface); border-color: var(--border); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
 .search-wrap input { border: none; background: transparent; outline: none; width: 100%; font-size: 14px; color: var(--text); }
 .search-wrap input::placeholder { color: var(--text-muted); }
+.nepal-clock { display: flex; align-items: center; gap: 6px; background: var(--bg); border: 1px solid var(--border-light); border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: 500; color: var(--text); white-space: nowrap; }
+.nepal-clock svg { color: var(--primary); flex-shrink: 0; }
+#nepalTime { font-variant-numeric: tabular-nums; }
 .topbar-right { display: flex; align-items: center; gap: 8px; flex: 1; justify-content: flex-end; min-width: 0; }
 .date-nav { display: flex; align-items: center; gap: 4px; }
 .nav-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--surface); display: grid; place-items: center; color: var(--text-secondary); transition: background .15s; }

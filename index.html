@@ -39,8 +39,14 @@
                     <button class="view-btn" role="tab" data-view="schedule" aria-selected="false">Schedule</button>
                 </div>
                 <div class="search-wrap">
-                    <svg aria-hidden="true" focusable="false" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                     <input type="search" id="searchInput" placeholder="Search events & tasks" aria-label="Search">
+                </div>
+                <div class="nepal-clock" id="nepalClock" title="Nepal Time (Asia/Kathmandu)">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    <span id="nepalTime">00:00</span>
+                    <span id="nepalDate" style="opacity:.7; font-size:11px"></span>
+                    <span style="font-size:10px; color:var(--text-muted)">NPT</span>
                 </div>
             </div>
             <div class="topbar-right">
@@ -245,6 +251,13 @@
                             <option value="dark">Dark</option>
                         </select>
                     </div>
+                </div>
+                <div class="settings-group">
+                    <h4>Time & Timezone</h4>
+                    <p class="hint">All dates use <b>Asia/Kathmandu (NPT, UTC+5:45)</b> — BS conversion is Nepal-local. Day is correct, time was one day ahead due to browser local vs Nepal offset; now fixed.</p>
+                    <div class="settings-row"><span>Nepal Time</span><code id="settingsNepalTime" style="background:var(--bg); padding:2px 6px; border-radius:4px"></code></div>
+                    <div class="settings-row"><span>Timezone</span><span>Asia/Kathmandu (UTC+5:45)</span></div>
+                    <div class="settings-row"><span>BS Reference</span><span>2075-01-01 = 2018-04-14 NPT</span></div>
                 </div>
                 <div class="settings-group">
                     <h4>Data</h4>

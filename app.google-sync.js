@@ -8,7 +8,8 @@
   };
   const getState = () => window.__npState;
   const getNep = () => window.__npNep;
-  const toISO = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  const NEPAL_TZ='Asia/Kathmandu';
+  const toISO = d => { try{ return d.toLocaleDateString('en-CA', {timeZone: NEPAL_TZ}); }catch(e){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); } };
 
   // Mirrors OGCS GoogleCalendar.cs BackoffLimit=5, 2^backoff
   async function gFetchWithBackoff(url, opts, token){
@@ -76,11 +77,15 @@
               const start = ev.start.date ? parseISO(ev.start.date) : new Date(ev.start.dateTime);
               const end = ev.end && (ev.end.date ? parseISO(ev.end.date) : new Date(ev.end.dateTime));
               const allDay = !!ev.start.date;
+              // Use Nepal timezone for time display
+              function nepalHM(d){ try{ const p=d.toLocaleTimeString('en-GB',{timeZone:NEPAL_TZ,hour:'2-digit',minute:'2-digit',hour12:false}).split(':'); return [parseInt(p[0],10), parseInt(p[1],10)]; }catch(e){ return [d.getHours(), d.getMinutes()]; } }
+              const sHM = allDay? [0,0] : nepalHM(start);
+              const eHM = allDay||!end? [0,0] : nepalHM(end);
               all.push({
                 id:'g_'+ev.id, googleId:ev.id, googleCalendarId:cal.id,
                 title:ev.summary||'(No title)', date: toISO(start),
-                startTime: allDay? '' : String(start.getHours()).padStart(2,'0')+':'+String(start.getMinutes()).padStart(2,'0'),
-                endTime: allDay||!end? '' : String(end.getHours()).padStart(2,'0')+':'+String(end.getMinutes()).padStart(2,'0'),
+                startTime: allDay? '' : String(sHM[0]).padStart(2,'0')+':'+String(sHM[1]).padStart(2,'0'),
+                endTime: allDay||!end? '' : String(eHM[0]).padStart(2,'0')+':'+String(eHM[1]).padStart(2,'0'),
                 allDay, calendarId:'g_'+cal.id, description:ev.description||'', source:'google',
                 htmlLink:ev.htmlLink, color:cal.backgroundColor, colorId:ev.colorId, transparency:ev.transparency, visibility:ev.visibility
               });
@@ -97,15 +102,15 @@
     async createEvent(calId, payload, token){
       const body={ summary:payload.title, description:payload.description||'' };
       if(payload.colorId) body.colorId = payload.colorId;
-      if(payload.allDay){ body.start={date:payload.date}; const endD=new Date(payload.date); endD.setDate(endD.getDate()+1); body.end={date: toISO(endD)}; }
-      else { const s=new Date(payload.date+'T'+(payload.startTime||'09:00')+':00'); const e=new Date(payload.date+'T'+(payload.endTime||'10:00')+':00'); body.start={dateTime:s.toISOString()}; body.end={dateTime:e.toISOString()}; }
+      if(payload.allDay){ body.start={date:payload.date}; const endD=new Date(payload.date+'T00:00:00+05:45'); endD.setDate(endD.getDate()+1); body.end={date: toISO(endD)}; }
+      else { const s=new Date(payload.date+'T'+(payload.startTime||'09:00')+':00+05:45'); const e=new Date(payload.date+'T'+(payload.endTime||'10:00')+':00+05:45'); body.start={dateTime:s.toISOString(), timeZone:NEPAL_TZ}; body.end={dateTime:e.toISOString(), timeZone:NEPAL_TZ}; }
       return gFetchWithBackoff(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?sendUpdates=none`, { method:'POST', body:JSON.stringify(body)}, token);
     },
     async updateEvent(calId, eventId, payload, token){
       const body={ summary:payload.title, description:payload.description||'' };
       if(payload.colorId) body.colorId = payload.colorId;
-      if(payload.allDay){ body.start={date:payload.date}; const endD=new Date(payload.date); endD.setDate(endD.getDate()+1); body.end={date: toISO(endD)}; }
-      else { const s=new Date(payload.date+'T'+(payload.startTime||'09:00')+':00'); const e=new Date(payload.date+'T'+(payload.endTime||'10:00')+':00'); body.start={dateTime:s.toISOString()}; body.end={dateTime:e.toISOString()}; }
+      if(payload.allDay){ body.start={date:payload.date}; const endD=new Date(payload.date+'T00:00:00+05:45'); endD.setDate(endD.getDate()+1); body.end={date: toISO(endD)}; }
+      else { const s=new Date(payload.date+'T'+(payload.startTime||'09:00')+':00+05:45'); const e=new Date(payload.date+'T'+(payload.endTime||'10:00')+':00+05:45'); body.start={dateTime:s.toISOString(), timeZone:NEPAL_TZ}; body.end={dateTime:e.toISOString(), timeZone:NEPAL_TZ}; }
       return gFetchWithBackoff(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}?sendUpdates=none`, { method:'PUT', body:JSON.stringify(body)}, token);
     },
     async deleteEvent(calId, eventId, token){

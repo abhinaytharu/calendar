@@ -56,7 +56,7 @@
       for(const cal of calendars.slice(0,8)){
         const timeMin = range.from.toISOString();
         const timeMax = range.to.toISOString();
-        let url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime&maxResults=250&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&showDeleted=false`;
+        let url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?singleEvents=true&orderBy=startTime&maxResults=2500&timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&showDeleted=false`;
         try{
           let pageToken='';
           do{
@@ -66,14 +66,6 @@
               if(ev.status==='cancelled') return;
               // filter non-consumer eventTypes like OGCS permittedEventTypes
               if(ev.eventType && !['default','focusTime','outOfOffice'].includes(ev.eventType)) return;
-              // historic RRULE UNTIL check (OGCS) — skip if UNTIL < range.from
-              if(ev.recurrence && ev.recurrence.some(r=>r.includes('UNTIL'))){
-                const untilStr = ev.recurrence.join(' ').match(/UNTIL=([0-9T Z]+)/);
-                if(untilStr){
-                  const until = new Date(untilStr[1].replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?/, '$1-$2-$3T$4:$5:$6Z'));
-                  if(until < range.from) return;
-                }
-              }
               const start = ev.start.date ? parseISO(ev.start.date) : new Date(ev.start.dateTime);
               const end = ev.end && (ev.end.date ? parseISO(ev.end.date) : new Date(ev.end.dateTime));
               const allDay = !!ev.start.date;
@@ -102,6 +94,10 @@
     async createEvent(calId, payload, token){
       const body={ summary:payload.title, description:payload.description||'' };
       if(payload.colorId) body.colorId = payload.colorId;
+      if(payload.recurrence && payload.recurrence!=='none'){
+        const rrule = payload.recurrence==='daily' ? 'RRULE:FREQ=DAILY' : payload.recurrence==='weekly' ? 'RRULE:FREQ=WEEKLY' : payload.recurrence==='monthly' ? 'RRULE:FREQ=MONTHLY' : 'RRULE:FREQ=YEARLY';
+        body.recurrence = [rrule];
+      }
       if(payload.allDay){ body.start={date:payload.date}; const endD=new Date(payload.date+'T00:00:00+05:45'); endD.setDate(endD.getDate()+1); body.end={date: toISO(endD)}; }
       else { const s=new Date(payload.date+'T'+(payload.startTime||'09:00')+':00+05:45'); const e=new Date(payload.date+'T'+(payload.endTime||'10:00')+':00+05:45'); body.start={dateTime:s.toISOString(), timeZone:NEPAL_TZ}; body.end={dateTime:e.toISOString(), timeZone:NEPAL_TZ}; }
       return gFetchWithBackoff(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?sendUpdates=none`, { method:'POST', body:JSON.stringify(body)}, token);
@@ -109,6 +105,12 @@
     async updateEvent(calId, eventId, payload, token){
       const body={ summary:payload.title, description:payload.description||'' };
       if(payload.colorId) body.colorId = payload.colorId;
+      if(payload.recurrence && payload.recurrence!=='none'){
+        const rrule = payload.recurrence==='daily' ? 'RRULE:FREQ=DAILY' : payload.recurrence==='weekly' ? 'RRULE:FREQ=WEEKLY' : payload.recurrence==='monthly' ? 'RRULE:FREQ=MONTHLY' : 'RRULE:FREQ=YEARLY';
+        body.recurrence = [rrule];
+      } else if(payload.recurrence==='none'){
+        body.recurrence = [];
+      }
       if(payload.allDay){ body.start={date:payload.date}; const endD=new Date(payload.date+'T00:00:00+05:45'); endD.setDate(endD.getDate()+1); body.end={date: toISO(endD)}; }
       else { const s=new Date(payload.date+'T'+(payload.startTime||'09:00')+':00+05:45'); const e=new Date(payload.date+'T'+(payload.endTime||'10:00')+':00+05:45'); body.start={dateTime:s.toISOString(), timeZone:NEPAL_TZ}; body.end={dateTime:e.toISOString(), timeZone:NEPAL_TZ}; }
       return gFetchWithBackoff(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(eventId)}?sendUpdates=none`, { method:'PUT', body:JSON.stringify(body)}, token);

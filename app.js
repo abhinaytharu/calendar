@@ -592,12 +592,39 @@
     }
     return merged;
   }
+  function isRecurringOnDate(ev, iso){
+    if(!ev.recurrence || ev.recurrence==='none') return false;
+    if(ev.date === iso) return true; // original date always
+    const start = parseISO(ev.date);
+    const target = parseISO(iso);
+    if(target < start) return false;
+    // Limit to 2 years to avoid infinite
+    const diffDays = Math.floor((target - start)/86400000);
+    if(diffDays > 730) return false;
+    if(ev.recurrence==='daily') return true;
+    if(ev.recurrence==='weekly') return diffDays % 7 === 0;
+    if(ev.recurrence==='monthly') return target.getDate() === start.getDate();
+    if(ev.recurrence==='yearly') return target.getDate()===start.getDate() && target.getMonth()===start.getMonth();
+    return false;
+  }
   function getEventsForAD(iso){
-    return allVisibleEvents().filter(e=> e.date===iso);
+    const direct = allVisibleEvents().filter(e=> e.date===iso);
+    // Expand local recurring events that occur on this date (but not already direct)
+    const recurring = allVisibleEvents().filter(e=> e.recurrence && e.recurrence!=='none' && e.date!==iso && isRecurringOnDate(e, iso));
+    // Clone recurring for display with same id but different date for key
+    const expanded = recurring.map(e=> ({...e, _isRecurringInstance:true, _instanceDate:iso, date: iso}));
+    return [...direct, ...expanded];
   }
   function getTasksForAD(iso){
     if(!state.showTasksOnCalendar) return [];
-    let tasks = state.google.tasks.filter(t=> t.due===iso);
+    let tasks = state.google.tasks.filter(t=> {
+      if(t.due===iso) return true;
+      if(t.recurrence && t.recurrence!=='none' && t.due){
+        return isRecurringOnDate({date:t.due, recurrence:t.recurrence}, iso);
+      }
+      return false;
+    });
+    // Also include local tasks if any (stored in state.events? tasks are only google, but handle local tasks with recurrence if added)
     if(state.searchQuery){
       const q=state.searchQuery.toLowerCase();
       tasks = tasks.filter(t=> t.title.toLowerCase().includes(q));
@@ -745,10 +772,12 @@
         combined.forEach(item=>{
           if(item.kind==='event'){
             const ev=item.data; const col = ev.color || state.calendars[ev.calendarId]?.color || '#039be5';
-            html+=`<div class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}" title="${esc(ev.title)}">${highlight(ev.title, state.searchQuery)}</div>`;
+            const recurIcon = ev.recurrence && ev.recurrence!=='none' ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>' : '';
+            html+=`<div class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}" title="${esc(ev.title)}${ev.recurrence && ev.recurrence!=='none' ? ' ('+esc(ev.recurrence)+')' : ''}">${recurIcon}${highlight(ev.title, state.searchQuery)}</div>`;
           } else {
             const t=item.data;
-            html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}" title="${esc(t.title)} — ${esc(t.listTitle||'Tasks')}">✓ ${esc(t.title||'(No title)')}</div>`;
+            const tRecur = t.recurrence && t.recurrence!=='none' ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path></svg>' : '';
+            html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}" title="${esc(t.title)} — ${esc(t.listTitle||'Tasks')}${t.recurrence && t.recurrence!=='none' ? ' ('+esc(t.recurrence)+')' : ''}">${tRecur}✓ ${esc(t.title||'(No title)')}</div>`;
           }
         });
         if(remaining>0) html+=`<div class="more-link">+${remaining} more</div>`;
@@ -966,6 +995,8 @@
     $('#modalTitle').textContent='New Event';
     $('#deleteBtn').hidden=true;
     form.reset();
+    const recSel = document.getElementById('eventRecurrence');
+    if(recSel) recSel.value='none';
     $('#eventDate').value=iso||toISO(new Date());
     if(startTime) $('#eventStartTime').value=startTime;
     const ad=parseISO($('#eventDate').value), bs=Nep.adToBs(ad);
@@ -986,7 +1017,12 @@
     $('#eventEndTime').value=ev.endTime||'';
     $('#eventDescription').value=ev.description||'';
     $('#eventAllDay').checked=!!ev.allDay;
-    $('#timeRow').style.display= ev.allDay? 'none':'flex';
+    const recSel2 = document.getElementById('eventRecurrence');
+    if(recSel2) recSel2.value = ev.recurrence || 'none';
+    // Hide/show time inputs but keep switch visible
+    document.querySelectorAll('#timeRow .modern-input').forEach(el=> el.style.display = ev.allDay ? 'none' : '');
+    const dash2 = document.querySelector('#timeRow span');
+    if(dash2) dash2.style.display = ev.allDay ? 'none' : '';
     const ad=parseISO(ev.date), bs=Nep.adToBs(ad);
     $('#bsHint').textContent=`BS: ${BS_MONTHS_NE[bs.month-1]} ${bs.day}, ${bs.year}`;
     modal.classList.remove('hidden'); trapModal(modal.querySelector('.modal'));
@@ -1122,6 +1158,7 @@
       const endRaw = data.get('endTime')||'';
       const isAllDay = !!data.get('allDay');
       if(!isAllDay && startRaw && endRaw && endRaw <= startRaw){ toast('End time must be after start time', 3000); return; }
+      const recurrence = data.get('recurrence') || 'none';
       const payload={
         id: state.editingId || 'e'+Date.now(),
         title: titleRaw,
@@ -1131,6 +1168,7 @@
         endTime: endRaw,
         description: data.get('description')||'',
         allDay: isAllDay,
+        recurrence: recurrence,
         source:'local'
       };
       const wantsGoogle=$('#googleSyncCheck').checked && isTokenValid() && state.calendars[payload.calendarId]?.source==='google';

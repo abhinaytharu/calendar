@@ -392,6 +392,41 @@ input, select, textarea { font: inherit; }
   .hour-row:hover { background: transparent; }
   .event-chip, .task-chip { min-height: 26px; }
 }
+/* Mobile calendar polish — month/week/day/schedule */
+@media (max-width: 768px) {
+  .calendar-main { scrollbar-width: thin; }
+  .month-grid { border-left: none; border-right: none; border-bottom: none; gap: 1px; background: var(--border-light); }
+  .month-header { font-size: 10px; padding: 5px 0; letter-spacing: 0.02em; background: var(--surface); position: sticky; top: 0; z-index: 1; }
+  .month-cell { min-height: 76px; padding: 4px 3px; gap: 2px; }
+  .month-cell.other { opacity: 0.62; }
+  .day-head { padding: 1px 0; }
+  .bs-day { font-size: 12px; width: 22px; height: 22px; }
+  .ad-day { font-size: 8px; right: 2px; }
+  .month-cell .events { gap: 1px; }
+  .event-chip, .task-chip { font-size: 9.5px; line-height: 1.2; padding: 2px 4px; min-height: 20px; border-radius: 4px; }
+  .more-link { font-size: 9px; padding: 1px 4px; }
+  .week-header, .time-grid.week { min-width: 640px; }
+  .calendar-main:has(.week-layout) { overflow-x: auto; }
+  .week-layout, .day-layout { min-width: 0; }
+  .schedule-group { grid-template-columns: 1fr; }
+  .schedule-date { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; border-right: none; border-bottom: 1px solid var(--border-light); }
+}
+@media (max-width: 520px) {
+  .month-cell { min-height: 68px; padding: 3px 2px; }
+  .month-header { font-size: 9px; padding: 4px 0; }
+  .bs-day { font-size: 11px; width: 20px; height: 20px; }
+  .ad-day { display: none; }
+  .day-head { justify-content: center; }
+  .event-chip, .task-chip { font-size: 9px; padding: 1.5px 3px; min-height: 18px; }
+  .week-header, .time-grid.week { min-width: 580px; }
+  .time-grid.week .time-label, .time-grid.day .time-label { font-size: 9px; }
+}
+@media (max-width: 380px) {
+  .month-cell { min-height: 60px; padding: 2px; }
+  .bs-day { font-size: 10.5px; width: 19px; height: 19px; }
+  .month-header { font-size: 8.5px; }
+  .event-chip, .task-chip { font-size: 8.5px; min-height: 17px; }
+}
 
 /* === Breathable 16:9 (landscape widescreen) === */
 @media (min-aspect-ratio: 16/9) and (min-width: 1024px) {

@@ -425,11 +425,46 @@ input, select, textarea { font: inherit; }
   .week-header, .all-day-row.week, .time-grid.week { min-width: 580px; width: 580px; }
   .time-grid.week .time-label, .time-grid.day .time-label { font-size: 9px; }
 }
+@media (max-width: 600px) {
+  .month-cell { min-height: 72px; }
+  .week-header, .all-day-row.week, .time-grid.week { min-width: 620px; width: 620px; }
+}
+@media (max-width: 430px) {
+  .month-cell { min-height: 64px; padding: 2px; }
+  .month-header { font-size: 9px; padding: 3px 0; }
+  .bs-day { font-size: 10.5px; width: 19px; height: 19px; }
+  .week-header, .all-day-row.week, .time-grid.week { min-width: 560px; width: 560px; }
+  .time-label { font-size: 9px; }
+  .day-header .bsNum { font-size: 16px; }
+}
 @media (max-width: 380px) {
   .month-cell { min-height: 60px; padding: 2px; }
   .bs-day { font-size: 10.5px; width: 19px; height: 19px; }
   .month-header { font-size: 8.5px; }
   .event-chip, .task-chip { font-size: 8.5px; min-height: 17px; }
+  .week-header, .all-day-row.week, .time-grid.week { min-width: 520px; width: 520px; }
+}
+@media (max-width: 320px) {
+  .month-cell { min-height: 56px; padding: 1px; gap: 1px; }
+  .month-header { font-size: 8px; padding: 3px 0; }
+  .bs-day { font-size: 10px; width: 18px; height: 18px; }
+  .event-chip, .task-chip { font-size: 8px; padding: 1px 2px; min-height: 16px; }
+  .more-link { font-size: 8px; }
+  .week-header, .all-day-row.week, .time-grid.week { min-width: 480px; width: 480px; }
+  .current-period-btn { font-size: 11px; }
+}
+@media (max-width: 280px) {
+  .month-cell { min-height: 52px; }
+  .month-header { font-size: 7.5px; }
+  .bs-day { font-size: 9.5px; width: 17px; height: 17px; }
+  .week-header, .all-day-row.week, .time-grid.week { min-width: 440px; width: 440px; }
+}
+/* Landscape mobile — keep bottom nav visible, reduce heights */
+@media (max-height: 500px) and (orientation: landscape) {
+  .month-cell { min-height: 56px; }
+  .calendar-main { padding-bottom: 56px; }
+  .bottom-nav { padding: 2px 0 env(safe-area-inset-bottom); }
+  .bottom-nav-btn { min-height: 40px; padding: 4px 0; }
 }
 
 /* === Breathable 16:9 (landscape widescreen) === */

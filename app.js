@@ -203,6 +203,7 @@
       holiday:{label:'Holidays (Nepal)', color:'#e67c73', visible:true, source:'local'},
     },
     editingId: null,
+    taskRecurrences: safeJSON('np_task_recurrence', {}),
     google: {
       token: localStorage.getItem('np_g_token')||null,
       expiry: Number(localStorage.getItem('np_g_exp')||0),
@@ -250,6 +251,7 @@
     try{ localStorage.setItem('np_g_tasks', JSON.stringify(state.google.tasks.slice(0,200))); }catch(e){}
     if(state.google.taskListId) localStorage.setItem('np_g_tasklist', state.google.taskListId);
   }
+  function saveTaskRecurrences(){ try{ localStorage.setItem('np_task_recurrence', JSON.stringify(state.taskRecurrences)); }catch(e){} }
 
   // Google Auth — PUBLIC MULTI-USER
   let tokenClient=null;
@@ -548,12 +550,37 @@
           try{
             const url=`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(lid)}/tasks?showCompleted=true&showHidden=true&showDeleted=false&maxResults=100` + (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '');
             const tdata=await gFetch(url);
-            (tdata.items||[]).forEach(t=> allTasks.push({ id:t.id, title:t.title||'(No title)', status:t.status, due:t.due? t.due.slice(0,10):'', updated:t.updated, listId:lid, listTitle: items.find(x=>x.id===lid)?.title||'' }));
+            (tdata.items||[]).forEach(t=> {
+              let rec = state.taskRecurrences[t.id] || null;
+              // fallback: parse notes "recurrence:daily"
+              if(!rec && t.notes && t.notes.includes('recurrence:')){
+                const m=t.notes.match(/recurrence:(daily|weekly|monthly|yearly)/);
+                if(m) rec=m[1];
+              }
+              allTasks.push({ id:t.id, title:t.title||'(No title)', status:t.status, due:t.due? t.due.slice(0,10):'', updated:t.updated, notes:t.notes||'', recurrence: rec || 'none', listId:lid, listTitle: items.find(x=>x.id===lid)?.title||'' });
+            });
             pageToken = tdata.nextPageToken || '';
           }catch(e){ console.warn('[Tasks] list',lid,e); break; }
         }while(pageToken);
       }
       state.google.taskListId = state.google.taskListId || items[0].id;
+      // Attach local recurrence map (Google Tasks API has no recurrence) — prefer map, else notes-derived
+      let mapDirty=false;
+      allTasks.forEach(t=>{
+        const fromMap = state.taskRecurrences[t.id];
+        if(fromMap && fromMap!=='none') t.recurrence = fromMap;
+        else if(t.recurrence && t.recurrence!=='none' && !fromMap){
+          // notes-derived recurrence → persist to map
+          state.taskRecurrences[t.id]=t.recurrence;
+          mapDirty=true;
+        } else if(!t.recurrence) t.recurrence='none';
+      });
+      if(mapDirty) saveTaskRecurrences();
+      // Clean orphan recurrences
+      const taskIds = new Set(allTasks.map(t=>t.id));
+      let cleaned=false;
+      Object.keys(state.taskRecurrences).forEach(k=>{ if(!taskIds.has(k)){ delete state.taskRecurrences[k]; cleaned=true; }});
+      if(cleaned) saveTaskRecurrences();
       saveGoogle();
       state.google.tasks = allTasks;
       console.log('[Tasks] total tasks', allTasks.length);
@@ -570,16 +597,48 @@
       } else toast('Tasks sync error: '+(e.message||e).slice(0,120), 4000);
     }
   }
-  async function taskCreate(title, due){
+  async function taskCreate(title, due, recurrence){
     const listId=state.google.taskListId; if(!listId) { toast('Sign in to create tasks'); return; }
+    if(recurrence && recurrence!=='none' && !due){ toast('Due date required for repeating tasks', 3000); return; }
     const body={ title }; if(due){ const d=new Date(due+'T00:00:00'); body.due=d.toISOString(); }
-    await gFetch(`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks`, { method:'POST', body: JSON.stringify(body)});
-    await syncGoogleTasks(); renderTasks();
+    // Store recurrence as Task notes: "recurrence:daily" so visible in Google Tasks too (optional)
+    // Primary store is local map np_task_recurrence, notes is secondary
+    if(recurrence && recurrence!=='none') body.notes = 'recurrence:'+recurrence;
+    const created = await gFetch(`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks`, { method:'POST', body: JSON.stringify(body)});
+    if(recurrence && recurrence!=='none' && created && created.id){
+      state.taskRecurrences[created.id]=recurrence;
+      saveTaskRecurrences();
+    }
+    await syncGoogleTasks(); renderAll();
+    toast(recurrence && recurrence!=='none' ? 'Task created — repeats '+recurrence : 'Task created', 2200);
   }
   async function taskToggle(id, completed){
     const listId=state.google.taskListId;
     await gFetch(`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(id)}`, { method:'PATCH', body: JSON.stringify({ status: completed? 'completed':'needsAction' })});
-    await syncGoogleTasks(); renderTasks();
+    await syncGoogleTasks(); renderAll();
+  }
+  function taskUpdateRecurrence(id, recurrence){
+    if(!id) return;
+    if(!recurrence || recurrence==='none') delete state.taskRecurrences[id];
+    else state.taskRecurrences[id]=recurrence;
+    saveTaskRecurrences();
+    // update in-memory
+    const t=state.google.tasks.find(x=>x.id===id);
+    if(t) t.recurrence = recurrence && recurrence!=='none' ? recurrence : 'none';
+    // Optionally patch notes on Google
+    const listId=state.google.taskListId;
+    if(listId && t){
+      gFetch(`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(id)}`, { method:'PATCH', body: JSON.stringify({ notes: recurrence && recurrence!=='none' ? 'recurrence:'+recurrence : '' })}).catch(()=>{});
+    }
+    renderAll();
+    toast(recurrence && recurrence!=='none' ? 'Task repeats '+recurrence : 'Task repeat cleared', 2000);
+  }
+  async function taskDelete(id){
+    const listId=state.google.taskListId; if(!listId) return;
+    if(!confirm('Delete this task?')) return;
+    await gFetch(`https://www.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(id)}`, { method:'DELETE' });
+    if(state.taskRecurrences[id]){ delete state.taskRecurrences[id]; saveTaskRecurrences(); }
+    await syncGoogleTasks(); renderAll();
   }
 
   // Unified events
@@ -766,6 +825,8 @@
     if(cur) sel.value=cur;
   }
   function renderTasks(){
+    // Hydrate recurrence for cached tasks (before first sync)
+    state.google.tasks.forEach(t=>{ if(!t.recurrence) t.recurrence = state.taskRecurrences[t.id] || 'none'; });
     const el=$('#taskList');
     if(!state.google.user){ el.innerHTML='<div class="hint">Sign in to see Google Tasks</div>'; return; }
     if(!state.google.tasks.length){ el.innerHTML='<div class="hint">No tasks — add one above</div>'; return; }
@@ -773,13 +834,18 @@
     let tasks=state.google.tasks;
     if(q) tasks=tasks.filter(t=> t.title.toLowerCase().includes(q));
     el.innerHTML='';
-    tasks.slice(0,30).forEach(t=>{
+    tasks.slice(0,40).forEach(t=>{
       const row=document.createElement('div'); row.className='task-item'+(t.status==='completed'?' completed':'');
-      // Use textContent via esc to avoid XSS from Google task titles
-      row.innerHTML=`<input type="checkbox" ${t.status==='completed'?'checked':''}><span class="task-title"></span><span class="task-due"></span>`;
+      const recur = t.recurrence && t.recurrence!=='none' ? t.recurrence : '';
+      row.innerHTML=`<input type="checkbox" ${t.status==='completed'?'checked':''}><span class="task-title"></span><span class="task-due"></span><select class="task-recur-select" title="Repeat" style="font-size:11px; padding:2px 4px; border:1px solid var(--border); border-radius:4px; background:var(--surface); color:var(--text);"><option value="none">—</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select><button class="icon-btn small task-del-btn" title="Delete" style="padding:4px">×</button>`;
       row.querySelector('.task-title').textContent = t.title || '(No title)';
-      row.querySelector('.task-due').textContent = t.due || '';
+      row.querySelector('.task-due').textContent = (t.due || '') + (recur ? ' · ↻'+recur : '');
+      const sel=row.querySelector('.task-recur-select');
+      sel.value = recur || 'none';
+      sel.addEventListener('change', e=> taskUpdateRecurrence(t.id, e.target.value));
+      row.querySelector('.task-del-btn').addEventListener('click', ()=> taskDelete(t.id));
       row.querySelector('input').addEventListener('change', e=> taskToggle(t.id, e.target.checked));
+      if(recur) row.title = 'Repeats '+recur+' from '+t.due;
       el.appendChild(row);
     });
   }
@@ -1290,7 +1356,9 @@
     });
     // tasks
     $('#addTaskBtn').addEventListener('click', ()=> $('#taskInputWrap').classList.toggle('hidden'));
-    $('#taskInput').addEventListener('keydown', async e=>{ if(e.key==='Enter'){ const t=$('#taskInput').value.trim(); if(!t) return; const due=$('#taskDueInput').value; await taskCreate(t,due); $('#taskInput').value=''; $('#taskDueInput').value=''; } });
+    $('#taskInput').addEventListener('keydown', async e=>{ if(e.key==='Enter'){ const t=$('#taskInput').value.trim(); if(!t) return; const due=$('#taskDueInput').value; const rec=$('#taskRecurrence') ? $('#taskRecurrence').value : 'none'; try{ await taskCreate(t,due,rec); }catch(err){ toast('Create failed: '+err.message, 3500); return; } $('#taskInput').value=''; $('#taskDueInput').value=''; if($('#taskRecurrence')) $('#taskRecurrence').value='none'; } });
+    const taskRecSel=$('#taskRecurrence');
+    if(taskRecSel) taskRecSel.addEventListener('change', e=>{ const due=$('#taskDueInput').value; if(e.target.value!=='none' && !due) toast('Pick a due date first for repeating tasks', 2500); });
     // auth
     $('#googleSignIn').addEventListener('click', signIn);
     $('#signOutBtn').addEventListener('click', signOut);

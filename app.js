@@ -533,6 +533,22 @@
     await gFetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(ev.googleCalendarId)}/events/${encodeURIComponent(ev.googleId)}`, { method:'DELETE' });
   }
 
+  function taskDueToNepalDate(iso){
+    if(!iso) return '';
+    try{
+      const d=new Date(iso);
+      // Convert to Nepal date YYYY-MM-DD via Intl
+      return d.toLocaleDateString('en-CA', {timeZone: NEPAL_TZ});
+    }catch(e){ return iso.slice(0,10); }
+  }
+  function taskDueToNepalTime(iso){
+    if(!iso) return '';
+    try{
+      const d=new Date(iso);
+      const t=d.toLocaleTimeString('en-GB', {timeZone: NEPAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false});
+      return t==='00:00' ? '' : t;
+    }catch(e){ return ''; }
+  }
   // Google Tasks — fetch ALL lists (OGCS has no Tasks; fix scope re-grant)
   async function syncGoogleTasks(){
     if(!isTokenValid()) return;
@@ -557,7 +573,9 @@
                 const m=t.notes.match(/recurrence:(daily|weekly|monthly|yearly)/);
                 if(m) rec=m[1];
               }
-              allTasks.push({ id:t.id, title:t.title||'(No title)', status:t.status, due:t.due? t.due.slice(0,10):'', updated:t.updated, notes:t.notes||'', recurrence: rec || 'none', listId:lid, listTitle: items.find(x=>x.id===lid)?.title||'' });
+              const nepDate = taskDueToNepalDate(t.due);
+              const nepTime = taskDueToNepalTime(t.due);
+              allTasks.push({ id:t.id, title:t.title||'(No title)', status:t.status, due:nepDate, dueTime:nepTime, dueRaw:t.due||'', updated:t.updated, notes:t.notes||'', recurrence: rec || 'none', listId:lid, listTitle: items.find(x=>x.id===lid)?.title||'' });
             });
             pageToken = tdata.nextPageToken || '';
           }catch(e){ console.warn('[Tasks] list',lid,e); break; }
@@ -597,10 +615,20 @@
       } else toast('Tasks sync error: '+(e.message||e).slice(0,120), 4000);
     }
   }
-  async function taskCreate(title, due, recurrence){
+  async function taskCreate(title, due, dueTime, recurrence){
+    // handle overload: taskCreate(title,due,recurrence) old call
+    if(recurrence===undefined && dueTime && ['none','daily','weekly','monthly','yearly'].includes(dueTime)){
+      recurrence=dueTime; dueTime='';
+    }
     const listId=state.google.taskListId; if(!listId) { toast('Sign in to create tasks'); return; }
     if(recurrence && recurrence!=='none' && !due){ toast('Due date required for repeating tasks', 3000); return; }
-    const body={ title }; if(due){ const d=new Date(due+'T00:00:00'); body.due=d.toISOString(); }
+    const body={ title };
+    if(due){
+      const tm = (dueTime && dueTime.includes(':')) ? dueTime : '00:00';
+      // Create as Nepal time to keep date aligned — same as events
+      const d=new Date(due+'T'+tm+':00+05:45');
+      body.due=isNaN(d) ? new Date(due+'T00:00:00+05:45').toISOString() : d.toISOString();
+    }
     // Store recurrence as Task notes: "recurrence:daily" so visible in Google Tasks too (optional)
     // Primary store is local map np_task_recurrence, notes is secondary
     if(recurrence && recurrence!=='none') body.notes = 'recurrence:'+recurrence;
@@ -857,7 +885,7 @@
       const recur = t.recurrence && t.recurrence!=='none' ? t.recurrence : '';
       row.innerHTML=`<input type="checkbox" ${t.status==='completed'?'checked':''}><span class="task-title"></span><span class="task-due"></span><select class="task-recur-select" title="Repeat" style="font-size:11px; padding:2px 4px; border:1px solid var(--border); border-radius:4px; background:var(--surface); color:var(--text);"><option value="none">—</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select><button class="icon-btn small task-del-btn" title="Delete" style="padding:4px">×</button>`;
       row.querySelector('.task-title').textContent = t.title || '(No title)';
-      row.querySelector('.task-due').textContent = (t.due || '') + (recur ? ' · ↻'+recur : '');
+      row.querySelector('.task-due').textContent = (t.due || '') + (t.dueTime ? ' '+t.dueTime : '') + (recur ? ' · ↻'+recur : '');
       const sel=row.querySelector('.task-recur-select');
       sel.value = recur || 'none';
       sel.addEventListener('change', e=> taskUpdateRecurrence(t.id, e.target.value));
@@ -910,7 +938,7 @@
           } else {
             const t=item.data;
             const tRecur = t.recurrence && t.recurrence!=='none' ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path></svg>' : '';
-            html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}" title="${esc(t.title)} — ${esc(t.listTitle||'Tasks')}${t.recurrence && t.recurrence!=='none' ? ' ('+esc(t.recurrence)+')' : ''}">${tRecur}✓ ${esc(t.title||'(No title)')}</div>`;
+            html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}" title="${esc(t.title)} — ${esc(t.listTitle||'Tasks')}${t.dueTime ? ' '+esc(t.dueTime) : ''}${t.recurrence && t.recurrence!=='none' ? ' ('+esc(t.recurrence)+')' : ''}">${tRecur}✓ ${esc(t.title||'(No title)')}${t.dueTime ? ' '+esc(t.dueTime) : ''}</div>`;
           }
         });
         if(remaining>0) html+=`<div class="more-link">+${remaining} more</div>`;
@@ -946,7 +974,7 @@
     let html='<div class="week-layout"><div class="week-header"><div class="time-gutter"></div>';
     for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const b=Nep.adToBs(d); const bd=bsForDisplay(b); html+=`<div class="day-col-header ${toISO(d)===todayISO?'today':''}"><div class="dow">${WEEKDAYS_EN[d.getDay()]}</div><div class="bsNum">${bd.day}</div><div class="adNum">${d.getDate()} ${d.toLocaleDateString('en-US',{month:'short'})}</div><div style="font-size:10px;color:var(--text-muted)">${BS_MONTHS_NE[bd.month-1]}</div></div>`; }
     html+='</div><div class="all-day-row week"><div class="all-day-label">all-day</div>';
-    for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const iso=toISO(d); const evs=getEventsForAD(iso).filter(e=>e.allDay); const tasks=getTasksForAD(iso); html+=`<div style="border-left:1px solid var(--border-light);padding:2px;display:flex;flex-direction:column;gap:2px">`; evs.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</div>`; }); tasks.forEach(t=>{ html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}">✓ ${esc(t.title)}</div>`; }); html+=`</div>`; }
+    for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const iso=toISO(d); const evs=getEventsForAD(iso).filter(e=>e.allDay); const tasks=getTasksForAD(iso); html+=`<div style="border-left:1px solid var(--border-light);padding:2px;display:flex;flex-direction:column;gap:2px">`; evs.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</div>`; }); tasks.forEach(t=>{ html+=`<div class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}">✓ ${esc(t.title)}${t.dueTime ? ' '+esc(t.dueTime) : ''}</div>`; }); html+=`</div>`; }
     html+='</div><div class="time-grid week"><div class="time-labels">'; for(let h=0;h<24;h++) html+=`<div class="time-label">${h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'}</div>`; html+='</div>';
     for(let i=0;i<7;i++){ const d=new Date(ws); d.setDate(ws.getDate()+i); const iso=toISO(d); const timed=getEventsForAD(iso).filter(e=>!e.allDay && e.startTime); html+=`<div class="day-column" data-iso="${esc(iso)}">`; for(let h=0;h<24;h++) html+=`<div class="hour-row" data-hour="${h}"></div>`; timed.forEach(ev=>{ const [sh,sm]=ev.startTime.split(':').map(Number); const [eh,em]=ev.endTime?ev.endTime.split(':').map(Number):[sh+1,sm]; const top=sh*42+(sm/60)*42; const h=Math.max(22, ((eh*60+em)-(sh*60+sm))/60*42); const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="timed-event" role="button" tabindex="0" data-id="${esc(ev.id)}" style="top:${top}px;height:${h}px;background:${esc(col)}"><div>${esc(ev.title)}</div><div class="ev-time">${esc(ev.startTime)} – ${esc(ev.endTime||'')}</div></div>`; }); html+=`</div>`; }
     html+='</div></div>';
@@ -962,7 +990,7 @@
     const bdDisp = bsForDisplay(bs);
     let html='<div class="day-layout"><div class="day-header"><div class="time-gutter"></div><div class="day-col-header '+(isToday?'today':'')+'"><div class="dow">'+WEEKDAYS_FULL[ad.getDay()]+' · '+BS_MONTHS_NE[bdDisp.month-1]+' '+bdDisp.day+', '+bdDisp.year+'</div><div class="adNum">'+fmtAD(ad)+'</div></div></div>';
     const allDay=getEventsForAD(iso).filter(e=>e.allDay); const dayTasks=getTasksForAD(iso);
-    html+='<div class="all-day-row day"><div class="all-day-label">all-day</div><div style="padding:4px;display:flex;gap:4px;flex-wrap:wrap">'; allDay.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<span class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</span>`; }); dayTasks.forEach(t=>{ html+=`<span class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}">✓ ${esc(t.title)}</span>`; }); html+='</div></div>';
+    html+='<div class="all-day-row day"><div class="all-day-label">all-day</div><div style="padding:4px;display:flex;gap:4px;flex-wrap:wrap">'; allDay.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<span class="event-chip" role="button" tabindex="0" data-id="${esc(ev.id)}" style="background:${esc(col)}">${esc(ev.title)}</span>`; }); dayTasks.forEach(t=>{ html+=`<span class="task-chip ${t.status==='completed'?'completed':''}" role="button" tabindex="0" data-task="${esc(t.id)}">✓ ${esc(t.title)}${t.dueTime ? ' '+esc(t.dueTime) : ''}</span>`; }); html+='</div></div>';
     html+='<div class="time-grid day"><div class="time-labels">'; for(let h=0;h<24;h++) html+=`<div class="time-label">${h===0?'12 AM':h<12?h+' AM':h===12?'12 PM':(h-12)+' PM'}</div>`; html+='</div><div class="day-column" data-iso="'+esc(iso)+'">'; for(let h=0;h<24;h++) html+=`<div class="hour-row"></div>`; getEventsForAD(iso).filter(e=>!e.allDay && e.startTime).forEach(ev=>{ const [sh,sm]=ev.startTime.split(':').map(Number); const [eh,em]=ev.endTime?ev.endTime.split(':').map(Number):[sh+1,sm]; const top=sh*42+(sm/60)*42; const h=Math.max(22, ((eh*60+em)-(sh*60+sm))/60*42); const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="timed-event" role="button" tabindex="0" data-id="${esc(ev.id)}" style="top:${top}px;height:${h}px;background:${esc(col)}"><div>${esc(ev.title)}</div><div class="ev-time">${esc(ev.startTime)} – ${esc(ev.endTime||'')}</div><div style="font-size:11px;opacity:.9">${esc(ev.description||'')}</div></div>`; }); html+='</div></div></div>';
     container.innerHTML=html;
     container.querySelectorAll('.timed-event,.event-chip').forEach(el=> el.addEventListener('click', ()=> openEdit(el.dataset.id)));
@@ -980,7 +1008,7 @@
       const b=bsForDisplay(Nep.adToBs(d));
       html+=`<div class="schedule-group"><div class="schedule-date"><span class="sd-bs">${BS_MONTHS_NE[b.month-1]} ${b.day}, ${b.year}</span><span class="sd-ad">${fmtAD(d)}</span><span class="sd-dow">${WEEKDAYS_FULL[d.getDay()]}</span></div><div class="schedule-events">`;
       evs.forEach(ev=>{ const col=ev.color||state.calendars[ev.calendarId]?.color||'#999'; html+=`<div class="schedule-event" role="button" tabindex="0" data-id="${esc(ev.id)}"><div class="se-time">${ev.allDay?'All day':esc(ev.startTime||'')+' – '+esc(ev.endTime||'')}</div><div class="se-dot" style="background:${esc(col)}"></div><div><div class="se-title">${esc(ev.title)}${ev.source==='google'?' · Google':''}</div><div class="se-desc">${esc(ev.description||'')}</div></div></div>`; });
-      (tasks||[]).forEach(t=>{ html+=`<div class="schedule-task" role="button" tabindex="0" data-task="${esc(t.id)}"><div class="se-time">Task</div><div class="se-dot" style="background:var(--task)"></div><div><div class="se-title" style="${t.status==='completed'?'text-decoration:line-through;opacity:.6':''}">☐ ${esc(t.title)} · ${esc(t.listTitle||'Tasks')}</div><div class="se-desc">${t.due? 'Due '+esc(t.due):''}</div></div></div>`; });
+      (tasks||[]).forEach(t=>{ html+=`<div class="schedule-task" role="button" tabindex="0" data-task="${esc(t.id)}"><div class="se-time">${t.dueTime ? esc(t.dueTime) : 'Task'}</div><div class="se-dot" style="background:var(--task)"></div><div><div class="se-title" style="${t.status==='completed'?'text-decoration:line-through;opacity:.6':''}">☐ ${esc(t.title)} · ${esc(t.listTitle||'Tasks')}</div><div class="se-desc">${t.due? 'Due '+esc(t.due)+(t.dueTime ? ' '+esc(t.dueTime) : ''):''}</div></div></div>`; });
       html+=`</div></div>`;
     }
     html+='</div>'; container.innerHTML=html;
@@ -1384,7 +1412,7 @@
     });
     // tasks
     $('#addTaskBtn').addEventListener('click', ()=> $('#taskInputWrap').classList.toggle('hidden'));
-    $('#taskInput').addEventListener('keydown', async e=>{ if(e.key==='Enter'){ const t=$('#taskInput').value.trim(); if(!t) return; const due=$('#taskDueInput').value; const rec=$('#taskRecurrence') ? $('#taskRecurrence').value : 'none'; try{ await taskCreate(t,due,rec); }catch(err){ toast('Create failed: '+err.message, 3500); return; } $('#taskInput').value=''; $('#taskDueInput').value=''; if($('#taskRecurrence')) $('#taskRecurrence').value='none'; } });
+    $('#taskInput').addEventListener('keydown', async e=>{ if(e.key==='Enter'){ const t=$('#taskInput').value.trim(); if(!t) return; const due=$('#taskDueInput').value; const dueTime=$('#taskDueTime') ? $('#taskDueTime').value : ''; const rec=$('#taskRecurrence') ? $('#taskRecurrence').value : 'none'; try{ await taskCreate(t,due,dueTime,rec); }catch(err){ toast('Create failed: '+err.message, 3500); return; } $('#taskInput').value=''; $('#taskDueInput').value=''; if($('#taskDueTime')) $('#taskDueTime').value=''; if($('#taskRecurrence')) $('#taskRecurrence').value='none'; } });
     const taskRecSel=$('#taskRecurrence');
     if(taskRecSel) taskRecSel.addEventListener('change', e=>{ const due=$('#taskDueInput').value; if(e.target.value!=='none' && !due) toast('Pick a due date first for repeating tasks', 2500); });
     // auth

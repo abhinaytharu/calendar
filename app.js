@@ -184,7 +184,7 @@
   }
 
   const state = {
-    currentView: 'month',
+    currentView: (window.innerWidth <= 768 ? 'week' : 'month'),
     currentBS: Nep.todayBS(),
     selectedBS: null,
     searchQuery: '',
@@ -1407,6 +1407,7 @@
       if(e.key==='Escape'){ closeModal(); $('#settingsModal').classList.add('hidden'); $('#datePickerModal').classList.add('hidden'); }
       if(e.key==='n' && (e.ctrlKey||e.metaKey)){ e.preventDefault(); openCreate(toISO(Nep.bsToAd(state.currentBS.year,state.currentBS.month,state.currentBS.day))); }
     });
+    syncViewButtons(state.currentView);
     renderAll();
     initGis();
     // Show cached Google data immediately (already in renderAll), then try to sync

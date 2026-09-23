@@ -1047,15 +1047,20 @@
       const view=state.datePickerBS || state.currentBS;
       const y=view.year, m=view.month, dim=Nep.daysInMonth(y,m), firstAD=Nep.bsToAd(y,m,1), firstDow=firstAD.getDay();
       const today=Nep.todayBS();
+      const dispToday=bsForDisplay(today), dispSel=bsForDisplay(state.currentBS);
       html+=`<div class="date-picker-toolbar"><button type="button" id="datePickPrev" aria-label="Previous month">‹</button><div><strong>${BS_MONTHS_NE[m-1]} ${y}</strong><span>${firstAD.toLocaleDateString('en-US',{month:'long',year:'numeric'})} AD</span></div><button type="button" id="datePickNext" aria-label="Next month">›</button></div>`;
       html+='<div class="date-picker-days">';
       WEEKDAYS_EN.forEach((w,i)=> html+=`<div class="date-picker-weekday ${i===0||i===6?'sunday saturday':''}">${w}</div>`);
-      for(let i=0;i<firstDow;i++) html+='<div></div>';
-      for(let d=1; d<=dim; d++){
-        const ad=Nep.bsToAd(y,m,d), iso=toISO(ad);
-        const isToday=today.year===y && today.month===m && today.day===d;
-        const isSelected=state.currentBS.year===y && state.currentBS.month===m && state.currentBS.day===d;
-        const disp = bsForDisplay({year:y, month:m, day:d}).day;
+      const firstDowDisp=(firstDow+1)%7;
+      for(let i=0;i<firstDowDisp;i++) html+='<div></div>';
+      for(let dispD=1; dispD<=dim; dispD++){
+        let trueY=y, trueM=m, trueD=dispD+1;
+        if(trueD>dim){ trueY=y; trueM=m+1; if(trueM>12){trueM=1; trueY=y+1;} trueD=1; }
+        const ad=Nep.bsToAd(trueY,trueM,trueD), iso=toISO(ad);
+        const dispObj={year:y, month:m, day:dispD};
+        const isToday=dispObj.year===dispToday.year && dispObj.month===dispToday.month && dispObj.day===dispToday.day;
+        const isSelected=dispObj.year===dispSel.year && dispObj.month===dispSel.month && dispObj.day===dispSel.day;
+        const disp = dispD;
         html+=`<button type="button" class="date-picker-day ${isToday?'today':''} ${isSelected?'selected':''}" data-iso="${iso}"><span>${disp}</span><small>${ad.getDate()}</small></button>`;
       }
       html+='</div>';

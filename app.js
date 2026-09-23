@@ -769,16 +769,21 @@
     let html=`<div class="mini-header"><span class="mini-title">${BS_MONTHS_NE[m-1]} ${y}</span><div class="mini-nav"><button id="miniPrev" aria-label="Prev">‹</button><button id="miniNext" aria-label="Next">›</button></div></div>`;
     html+=`<div class="mini-grid">`;
     WEEKDAYS_EN.forEach(w=> html+=`<div class="mini-weekday">${w[0]}</div>`);
-    for(let i=0;i<firstDow;i++) html+=`<div></div>`;
-    for(let d=1; d<=dim; d++){
-      const dispObj = bsForDisplay({year:y, month:m, day:d});
-      const disp = dispObj.day;
+    // displayed month starts at true 2 (display 1), so weekday is true 2's dow = (firstDow+1)%7
+    const firstDowDisp = (firstDow + 1) % 7;
+    for(let i=0;i<firstDowDisp;i++) html+=`<div></div>`;
+    for(let dispD=1; dispD<=dim; dispD++){
+      // true BS that displays as dispD is dispD+1 (overflow to next month for last)
+      let trueY=y, trueM=m, trueD=dispD+1;
+      if(trueD > dim){ trueY=y; trueM=m+1; if(trueM>12){trueM=1; trueY=y+1;} trueD=1; }
+      const dispObj = {year:y, month:m, day:dispD};
+      const disp = dispD;
       const dispToday = bsForDisplay(todayBS);
       const dispCur = bsForDisplay(state.currentBS);
       const isToday=dispObj.year===dispToday.year && dispObj.month===dispToday.month && dispObj.day===dispToday.day;
       const isSel=dispObj.year===dispCur.year && dispObj.month===dispCur.month && dispObj.day===dispCur.day;
-      const ad=Nep.bsToAd(y,m,d); const iso=toISO(ad); const hasTask = hasTasksForAD(iso);
-      html+=`<div class="mini-day ${isToday?'today':''} ${isSel && !isToday?'selected':''} ${hasTask?'has-task':''}" data-d="${d}">${disp}</div>`;
+      const ad=Nep.bsToAd(trueY,trueM,trueD); const iso=toISO(ad); const hasTask = hasTasksForAD(iso);
+      html+=`<div class="mini-day ${isToday?'today':''} ${isSel && !isToday?'selected':''} ${hasTask?'has-task':''}" data-d="${dispD}" data-true="${trueY}-${trueM}-${trueD}">${disp}</div>`;
     }
     html+=`</div>`;
     el.innerHTML=html;
@@ -787,7 +792,17 @@
     if(miniAdEl) miniAdEl.textContent = '';
     el.querySelector('#miniPrev').addEventListener('click', ()=> navigateBS(-1));
     el.querySelector('#miniNext').addEventListener('click', ()=> navigateBS(1));
-    el.querySelectorAll('.mini-day').forEach(cd=> cd.addEventListener('click', ()=>{ state.currentBS={year:y,month:m,day:Number(cd.dataset.d)}; renderAll(); }));
+    el.querySelectorAll('.mini-day').forEach(cd=> {
+      cd.addEventListener('click', ()=>{
+        if(cd.dataset.true){
+          const [ty,tm,td]=cd.dataset.true.split('-').map(Number);
+          state.currentBS={year:ty,month:tm,day:td};
+        } else {
+          state.currentBS={year:y,month:m,day:Number(cd.dataset.d)};
+        }
+        renderAll();
+      });
+    });
   }
   function renderCalendars(){
     const list=$('#calendarList'), other=$('#otherCalendars');

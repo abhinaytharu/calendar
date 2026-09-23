@@ -513,6 +513,36 @@ input, select, textarea { font: inherit; }
   .nepal-clock { padding: 6px 12px; font-size: 13px; gap: 8px; }
 }
 
+/* === 2400×1080 / Full HD+ / Ultra-wide === */
+@media (min-width: 1920px) {
+  :root { --sidebar-w: 360px; --topbar-h: 72px; }
+  .main-container { max-width: 1840px; margin: 0 auto; gap: 20px; padding: 20px; }
+  .month-cell { min-height: 148px; padding: 10px 12px; }
+  .month-header { font-size: 13px; padding: 12px 8px; }
+  .bs-day { width: 30px; height: 30px; font-size: 15px; }
+  .event-chip, .task-chip { font-size: 12.5px; padding: 4px 8px; }
+}
+@media (min-width: 2400px) {
+  :root { --sidebar-w: 400px; --topbar-h: 76px; }
+  .app-title { font-size: 24px; }
+  .current-period-btn { font-size: 22px; }
+  .main-container { max-width: 2280px; gap: 24px; padding: 24px; }
+  .month-cell { min-height: 168px; padding: 12px 14px; gap: 8px; }
+  .month-header { font-size: 14px; padding: 14px 8px; }
+  .bs-day { width: 32px; height: 32px; font-size: 16px; }
+  .mini-day { font-size: 14px; }
+  .calendar-main { border-radius: 16px; }
+}
+@media (width: 2400px) and (height: 1080px), (width: 1080px) and (height: 2400px) {
+  .app { height: 100vh; height: 100dvh; }
+  .calendar-main { max-height: calc(100vh - var(--topbar-h) - 24px); }
+}
+/* Portrait 1080×2400 — tall */
+@media (min-width: 1080px) and (max-width: 1200px) and (min-height: 2000px) {
+  .main-container { gap: 16px; padding: 16px; }
+  .month-cell { min-height: 120px; }
+}
+
 /* Modern Settings — single scroll */
 .settings-modal { width: min(640px, 100%); max-height: 88vh; display: flex; flex-direction: column; overflow: hidden; }
 .settings-modal .modal-header { flex-shrink: 0; }

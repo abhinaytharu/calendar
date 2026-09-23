@@ -543,6 +543,8 @@
   }
   function taskDueToNepalTime(iso){
     if(!iso) return '';
+    // All-day Tasks from Google are stored as UTC midnight 00:00:00Z — treat as no time (not 05:45 Nepal)
+    if(/T00:00:00(\.000)?Z$/.test(iso)) return '';
     try{
       const d=new Date(iso);
       const t=d.toLocaleTimeString('en-GB', {timeZone: NEPAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false});

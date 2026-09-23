@@ -771,10 +771,13 @@
     WEEKDAYS_EN.forEach(w=> html+=`<div class="mini-weekday">${w[0]}</div>`);
     for(let i=0;i<firstDow;i++) html+=`<div></div>`;
     for(let d=1; d<=dim; d++){
-      const isToday=todayBS.year===y && todayBS.month===m && todayBS.day===d;
-      const isSel=state.currentBS.year===y && state.currentBS.month===m && state.currentBS.day===d;
+      const dispObj = bsForDisplay({year:y, month:m, day:d});
+      const disp = dispObj.day;
+      const dispToday = bsForDisplay(todayBS);
+      const dispCur = bsForDisplay(state.currentBS);
+      const isToday=dispObj.year===dispToday.year && dispObj.month===dispToday.month && dispObj.day===dispToday.day;
+      const isSel=dispObj.year===dispCur.year && dispObj.month===dispCur.month && dispObj.day===dispCur.day;
       const ad=Nep.bsToAd(y,m,d); const iso=toISO(ad); const hasTask = hasTasksForAD(iso);
-      const disp = bsForDisplay({year:y, month:m, day:d}).day;
       html+=`<div class="mini-day ${isToday?'today':''} ${isSel && !isToday?'selected':''} ${hasTask?'has-task':''}" data-d="${d}">${disp}</div>`;
     }
     html+=`</div>`;
@@ -867,12 +870,15 @@
       if(off<1){ bsM=m-1; if(bsM<1){bsM=12; bsY=y-1;} bsD=Nep.daysInMonth(bsY,bsM)+off; other=true; }
       else if(off>dim){ bsM=m+1; if(bsM>12){bsM=1; bsY=y+1;} bsD=off-dim; other=true; }
       const ad=Nep.bsToAd(bsY,bsM,bsD), iso=toISO(ad);
-      const isToday=bsY===todayBS.year && bsM===todayBS.month && bsD===todayBS.day;
-      const isSel=state.selectedBS && state.selectedBS.year===bsY && state.selectedBS.month===bsM && state.selectedBS.day===bsD;
+      const disp = bsForDisplay({year:bsY, month:bsM, day:bsD});
+      const dispToday = bsForDisplay(todayBS);
+      const isToday=disp.year===dispToday.year && disp.month===dispToday.month && disp.day===dispToday.day;
+      const dispSel = state.selectedBS ? bsForDisplay(state.selectedBS) : null;
+      const isSel=dispSel && disp.year===dispSel.year && disp.month===dispSel.month && disp.day===dispSel.day;
       const evs=getEventsForAD(iso);
       const tasks=getTasksForAD(iso);
       const dow=ad.getDay();
-      const dispD = bsForDisplay({year:bsY, month:bsM, day:bsD}).day;
+      const dispD = disp.day;
       html+=`<div class="month-cell ${other?'other':''} ${isToday?'today':''} ${isSel?'selected':''}" data-iso="${iso}" data-bs="${bsY}-${bsM}-${bsD}">`;
       html+=`<div class="day-head"><span class="bs-day ${dow===0?'sunday':dow===6?'saturday':''}">${dispD}</span>${state.showAD?`<span class="ad-day">${ad.getDate()}</span>`:''}</div>`;
       const combined = [...evs.map(e=>({kind:'event', data:e})), ...tasks.map(t=>({kind:'task', data:t}))].slice(0,3);

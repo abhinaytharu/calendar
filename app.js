@@ -866,11 +866,13 @@
     WEEKDAYS_EN.forEach((w,i)=> html+=`<div class="month-header" style="${i===0||i===6?'color:var(--danger)':''}">${w} <span style="font-weight:400;opacity:.7">${WEEKDAYS_NE[i]}</span></div>`);
     for(let i=0;i<42;i++){
       const off=i-firstDow+1;
-      let bsY=y,bsM=m,bsD=off; let other=false;
-      if(off<1){ bsM=m-1; if(bsM<1){bsM=12; bsY=y-1;} bsD=Nep.daysInMonth(bsY,bsM)+off; other=true; }
-      else if(off>dim){ bsM=m+1; if(bsM>12){bsM=1; bsY=y+1;} bsD=off-dim; other=true; }
+      let bsY=y,bsM=m,bsD=off;
+      if(off<1){ bsM=m-1; if(bsM<1){bsM=12; bsY=y-1;} bsD=Nep.daysInMonth(bsY,bsM)+off; }
+      else if(off>dim){ bsM=m+1; if(bsM>12){bsM=1; bsY=y+1;} bsD=off-dim; }
       const ad=Nep.bsToAd(bsY,bsM,bsD), iso=toISO(ad);
       const disp = bsForDisplay({year:bsY, month:bsM, day:bsD});
+      // other based on displayed month, not true month — so previous month's last (displayed) is dimmed, current's first displayed 1 is bright
+      const other = disp.year !== y || disp.month !== m;
       const dispToday = bsForDisplay(todayBS);
       const isToday=disp.year===dispToday.year && disp.month===dispToday.month && disp.day===dispToday.day;
       const dispSel = state.selectedBS ? bsForDisplay(state.selectedBS) : null;

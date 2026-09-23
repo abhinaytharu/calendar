@@ -208,8 +208,8 @@
       expiry: Number(localStorage.getItem('np_g_exp')||0),
       user: safeJSON('np_g_user', null),
       calendars: safeJSON('np_g_cals', []),
-      events: [],
-      tasks: [],
+      events: safeJSON('np_g_events', []),
+      tasks: safeJSON('np_g_tasks', []),
       taskListId: localStorage.getItem('np_g_tasklist')||null,
     }
   };
@@ -241,7 +241,15 @@
     toast('Theme: '+state.theme+(state.theme==='auto'?' (system)':''), 1800);
   }
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>{ if(state.theme==='auto') applyTheme(); });
-  function saveGoogle(){ localStorage.setItem('np_g_token', state.google.token||''); localStorage.setItem('np_g_exp', String(state.google.expiry||0)); localStorage.setItem('np_g_user', JSON.stringify(state.google.user)); localStorage.setItem('np_g_cals', JSON.stringify(state.google.calendars)); if(state.google.taskListId) localStorage.setItem('np_g_tasklist', state.google.taskListId); }
+  function saveGoogle(){
+    localStorage.setItem('np_g_token', state.google.token||'');
+    localStorage.setItem('np_g_exp', String(state.google.expiry||0));
+    localStorage.setItem('np_g_user', JSON.stringify(state.google.user));
+    localStorage.setItem('np_g_cals', JSON.stringify(state.google.calendars));
+    try{ localStorage.setItem('np_g_events', JSON.stringify(state.google.events.slice(0,200))); }catch(e){}
+    try{ localStorage.setItem('np_g_tasks', JSON.stringify(state.google.tasks.slice(0,200))); }catch(e){}
+    if(state.google.taskListId) localStorage.setItem('np_g_tasklist', state.google.taskListId);
+  }
 
   // Google Auth — PUBLIC MULTI-USER
   let tokenClient=null;
@@ -392,7 +400,7 @@
       try{ fetch('https://oauth2.googleapis.com/revoke?token='+state.google.token, { method:'POST' }); }catch(e){}
     }
     state.google.token=null; state.google.user=null; state.google.events=[]; state.google.calendars=[]; state.google.tasks=[]; state.google.expiry=0;
-    localStorage.removeItem('np_g_token'); localStorage.removeItem('np_g_user'); localStorage.removeItem('np_g_cals');
+    localStorage.removeItem('np_g_token'); localStorage.removeItem('np_g_user'); localStorage.removeItem('np_g_cals'); localStorage.removeItem('np_g_events'); localStorage.removeItem('np_g_tasks');
     clearSynctokens();
     // Remove g_ calendars so next user doesn't see previous user's colors
     Object.keys(state.calendars).forEach(k=>{ if(k.startsWith('g_')) delete state.calendars[k]; });
@@ -594,9 +602,11 @@
   }
   function isRecurringOnDate(ev, iso){
     let rec = ev.recurrence;
-    // Handle Google RRULE array like ["RRULE:FREQ=DAILY"] vs local string "daily"
+    let untilStr = null;
     if(Array.isArray(rec)){
       const r = rec.join(' ');
+      const m = r.match(/UNTIL=([0-9T]+)/);
+      if(m) untilStr = m[1];
       if(r.includes('FREQ=DAILY')) rec = 'daily';
       else if(r.includes('FREQ=WEEKLY')) rec = 'weekly';
       else if(r.includes('FREQ=MONTHLY')) rec = 'monthly';
@@ -605,6 +615,13 @@
     }
     if(!rec || rec==='none') return false;
     if(ev.date === iso) return true;
+    // Check UNTIL for Google RRULE
+    if(untilStr){
+      try{
+        const u = untilStr.replace(/^(\d{4})(\d{2})(\d{2})T.*/, '$1-$2-$3');
+        if(iso > u) return false;
+      }catch(e){}
+    }
     try{
       const startStr = ev.date;
       const targetStr = iso;
@@ -1296,10 +1313,24 @@
     });
     renderAll();
     initGis();
-    // if already signed in, sync
-    if(isTokenValid()){
-      fetchGoogleUser().then(()=> syncGoogleAll());
-    }
+    // Show cached Google data immediately (already in renderAll), then try to sync
+    // Even if token appears expired, try silent refresh so data appears without relogin
+    setTimeout(()=>{
+      if(state.google.token){
+        const trySync = ()=> fetchGoogleUser().then(()=> syncGoogleAll()).catch(e=> console.warn('Auto sync failed', e));
+        if(isTokenValid()){
+          trySync();
+        } else {
+          // Token expired — try silent refresh (prompt:'')
+          ensureToken().then(trySync).catch(e=>{
+            console.warn('Silent refresh failed', e);
+            if(state.google.user) toast('Session expired — tap Sign in to refresh', 4000);
+          });
+        }
+      } else if(isTokenValid()){
+        fetchGoogleUser().then(()=> syncGoogleAll());
+      }
+    }, 1200);
   }
   let tries=0; const timer=setInterval(()=>{ const lib=detectLib(); if(lib){ Nep.lib=lib; clearInterval(timer); init(); } else if(++tries>10){ clearInterval(timer); init(); } },100);
 })();

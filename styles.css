@@ -405,7 +405,11 @@ input, select, textarea { font: inherit; }
   .month-cell .events { gap: 1px; }
   .event-chip, .task-chip { font-size: 9.5px; line-height: 1.2; padding: 2px 4px; min-height: 20px; border-radius: 4px; }
   .more-link { font-size: 9px; padding: 1px 4px; }
-  .week-header, .time-grid.week { min-width: 640px; }
+  /* week graph: header / all-day / time-grid must share same width or columns misalign */
+  .week-layout { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .week-header, .all-day-row.week, .time-grid.week { min-width: 640px; width: 640px; box-sizing: border-box; }
+  .week-header { position: sticky; top: 0; z-index: 2; }
+  .all-day-row.week { position: sticky; top: 34px; z-index: 1; }
   .calendar-main:has(.week-layout) { overflow-x: auto; }
   .week-layout, .day-layout { min-width: 0; }
   .schedule-group { grid-template-columns: 1fr; }
@@ -418,7 +422,7 @@ input, select, textarea { font: inherit; }
   .ad-day { display: none; }
   .day-head { justify-content: center; }
   .event-chip, .task-chip { font-size: 9px; padding: 1.5px 3px; min-height: 18px; }
-  .week-header, .time-grid.week { min-width: 580px; }
+  .week-header, .all-day-row.week, .time-grid.week { min-width: 580px; width: 580px; }
   .time-grid.week .time-label, .time-grid.day .time-label { font-size: 9px; }
 }
 @media (max-width: 380px) {
